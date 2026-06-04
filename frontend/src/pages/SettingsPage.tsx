@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Bell, Cloud, Globe, HardDrive, Link2, RefreshCw, Trash2, Upload } from 'lucide-react'
+import { Bell, Cloud, Globe, HardDrive, Link2, RefreshCw, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { DummyModal } from '@/components/drive/DummyModal'
 import { PageHeader } from '@/components/drive/PageHeader'
 import { apiFetch, formatBytes } from '@/lib/api'
+import { getGravatarUrl } from '@/lib/gravatar'
 import { getStoredUser } from '@/lib/auth'
 
 type ConnectedAccount = { id: string; email: string; status: string; storageAccount?: { totalBytes: string | null; usedBytes: string; availableBytes: string | null; lastSyncedAt: string | null } | null }
@@ -17,6 +18,7 @@ export function SettingsPage() {
   const [syncingAccountId, setSyncingAccountId] = useState<string | null>(null)
   const [disconnectingAccountId, setDisconnectingAccountId] = useState<string | null>(null)
   const [accountToDisconnect, setAccountToDisconnect] = useState<ConnectedAccount | null>(null)
+  const [profileImageUrl, setProfileImageUrl] = useState('')
 
   async function load() {
     const data = await apiFetch<{ accounts: ConnectedAccount[] }>('/connected-accounts')
@@ -26,6 +28,10 @@ export function SettingsPage() {
   useEffect(() => {
     load().catch((error) => setMessage(error instanceof Error ? error.message : 'Failed to load settings'))
   }, [])
+
+  useEffect(() => {
+    getGravatarUrl(user?.email, 96).then(setProfileImageUrl).catch(() => setProfileImageUrl(''))
+  }, [user?.email])
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
@@ -85,9 +91,8 @@ export function SettingsPage() {
         <div className="grid gap-6">
           <Card className="p-5">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-              <img src="https://i.pravatar.cc/96?img=12" alt="User avatar" className="h-20 w-20 rounded-2xl object-cover" />
+              <img src={profileImageUrl} alt="User avatar" className="h-20 w-20 rounded-2xl object-cover" />
               <div className="flex-1"><h2 className="text-xl font-extrabold">{user?.name ?? 'User'}</h2><p className="text-sm text-slate-500">{user?.email ?? '-'}</p></div>
-              <Button variant="outline"><Upload className="h-4 w-4" />Change Photo</Button>
             </div>
           </Card>
 

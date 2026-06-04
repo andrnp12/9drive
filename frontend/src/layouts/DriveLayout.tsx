@@ -22,6 +22,7 @@ import { DummyModal } from '@/components/drive/DummyModal'
 import { Input } from '@/components/ui/input'
 import { apiFetch, formatBytes } from '@/lib/api'
 import { clearAuthSession, getStoredUser, updateStoredUser, type AuthUser } from '@/lib/auth'
+import { getGravatarUrl } from '@/lib/gravatar'
 import { cn } from '@/lib/utils'
 
 const menu = [
@@ -52,12 +53,17 @@ function Sidebar({ onNavigate, user, storage, breakdown, onLogout }: { onNavigat
   const used = Number(storage?.usedBytes ?? 0)
   const total = Number(storage?.totalBytes ?? 0)
   const progress = total > 0 ? Math.min(100, (used / total) * 100) : 0
+  const [profileImageUrl, setProfileImageUrl] = useState('')
   const items = [
     ['Photo', formatBytes(breakdown.photo), 'bg-lime-500'],
     ['Video', formatBytes(breakdown.video), 'bg-yellow-400'],
     ['Document', formatBytes(breakdown.document), 'bg-cyan-400'],
     ['Free Storage', formatBytes(storage?.availableBytes), 'bg-orange-500'],
   ]
+
+  useEffect(() => {
+    getGravatarUrl(user?.email, 64).then(setProfileImageUrl).catch(() => setProfileImageUrl(''))
+  }, [user?.email])
 
   return (
     <aside className="flex h-full w-72 flex-col border-slate-200 bg-white p-5 lg:border-r">
@@ -67,7 +73,7 @@ function Sidebar({ onNavigate, user, storage, breakdown, onLogout }: { onNavigat
       </div>
 
       <div className="flex items-center gap-3 border-y border-slate-200 py-5">
-        <img src="https://i.pravatar.cc/64?img=12" alt="Thomas avatar" className="h-10 w-10 rounded-full object-cover" />
+        <img src={profileImageUrl} alt="User avatar" className="h-10 w-10 rounded-full object-cover" />
         <div className="min-w-0 flex-1">
           <p className="truncate font-bold">{user?.name ?? 'User'}</p>
           <p className="truncate text-sm text-slate-500">{user?.email ?? 'Loading...'}</p>
