@@ -1,7 +1,9 @@
 import { Router } from 'express'
+import { google } from 'googleapis'
 import { z } from 'zod'
 import { prisma } from '../../config/prisma.js'
 import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.js'
+import { getAuthedGoogleClient, syncGoogleQuota } from '../google/google.service.js'
 
 export const folderRouter = Router()
 folderRouter.use(requireAuth)
@@ -79,7 +81,37 @@ folderRouter.patch('/:id', async (req: AuthRequest, res, next) => {
 
 folderRouter.delete('/:id', async (req: AuthRequest, res, next) => {
   try {
-    await prisma.folder.updateMany({ where: { id: String(req.params.id), userId: req.user!.id }, data: { deletedAt: new Date() } })
+    const rootId = String(req.params.id)
+    const root = await prisma.folder.findFirstOrThrow({ where: { id: rootId, userId: req.user!.id, deletedAt: null } })
+    const folders = await prisma.folder.findMany({ where: { userId: req.user!.id, deletedAt: null }, select: { id: true, parentId: true } })
+    const folderIds = new Set<string>([root.id])
+    let changed = true
+    while (changed) {
+      changed = false
+      for (const folder of folders) {
+        if (folder.parentId && folderIds.has(folder.parentId) && !folderIds.has(folder.id)) {
+          folderIds.add(folder.id)
+          changed = true
+        }
+      }
+    }
+
+    const files = await prisma.file.findMany({ where: { userId: req.user!.id, status: 'active', folderId: { in: [...folderIds] } }, include: { connectedAccount: true } })
+    const syncedAccountIds = new Set<string>()
+    for (const file of files) {
+      try {
+        const auth = await getAuthedGoogleClient(file.connectedAccount)
+        const drive = google.drive({ version: 'v3', auth })
+        await drive.files.delete({ fileId: file.providerFileId })
+        syncedAccountIds.add(file.connectedAccountId)
+      } catch {
+        // Keep going so one provider failure does not leave the whole folder undeleted.
+      }
+    }
+
+    await prisma.file.updateMany({ where: { id: { in: files.map((file) => file.id) } }, data: { status: 'deleted', deletedAt: new Date() } })
+    await prisma.folder.updateMany({ where: { id: { in: [...folderIds] }, userId: req.user!.id }, data: { deletedAt: new Date() } })
+    for (const accountId of syncedAccountIds) await syncGoogleQuota(accountId).catch(() => undefined)
     return res.json({ status: 'ok' })
   } catch (error) {
     return next(error)
