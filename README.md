@@ -19,6 +19,8 @@
 
 ## Preview
 
+Live preview: https://9drive.zenhosta.com
+
 ![9Drive dashboard preview](https://i.ibb.co.com/HLjG3JRf/image.png)
 
 ![9Drive shared file preview](https://i.ibb.co.com/QLpYGmx/image.png)
