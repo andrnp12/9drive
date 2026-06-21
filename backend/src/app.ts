@@ -13,6 +13,7 @@ import { publicRouter } from './modules/public/public.routes.js'
 import { inviteRouter } from './modules/invites/invite.routes.js'
 import { apiKeyRouter } from './modules/api-keys/api-key.routes.js'
 import { publicApiRouter } from './modules/public-api/public-api.routes.js'
+import { googleUploadSessionRouter } from './modules/uploads/google-upload-session.routes.js'
 
 export const app = express()
 
