@@ -29,6 +29,11 @@ type UploadResult = { file?: unknown; files?: unknown[]; failed?: Array<{ fileNa
 type SyncGoogleResult = { accounts: number; created: number; updated: number; deleted: number }
 type FileViewMode = 'list' | 'grid'
 
+// --- Added for direct-to-Google-Drive upload (bypasses Railway request timeout for large files) ---
+type GoogleBestAccountResult = { accountId: string }
+type GoogleSessionResult = { sessionId: string; uploadUrl: string }
+type GoogleCompleteResult = { file: Record<string, unknown> }
+
 const fileViewStorageKey = '9drive:all-files-view-mode'
 
 function getStoredFileViewMode(): FileViewMode {
@@ -203,20 +208,117 @@ export function AllFilesPage() {
     await loadFolders()
   }
 
+  // --- Added: direct-to-Google-Drive upload for a single file. ---
+  // Returns null (instead of throwing) when no connected Google Drive
+  // account currently has enough free space, so the caller can fall back
+  // to the proxied /uploads endpoint (e.g. for S3-only setups).
+  async function uploadFileDirectToGoogle(
+    file: File,
+    folderId: string | undefined,
+    onProgress: (percent: number) => void,
+  ): Promise<UploadResult | null> {
+    const bestAccountRes = await fetch(`${API_URL}/uploads/google/best-account?sizeBytes=${file.size}`, {
+      headers: { Authorization: `Bearer ${getAccessToken()}` },
+    })
+    if (!bestAccountRes.ok) return null
+    const { accountId } = (await bestAccountRes.json()) as GoogleBestAccountResult
+
+    const sessionRes = await fetch(`${API_URL}/uploads/google/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAccessToken()}` },
+      body: JSON.stringify({
+        accountId,
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        sizeBytes: file.size,
+        folderId,
+      }),
+    })
+    if (!sessionRes.ok) {
+      const body = await sessionRes.json().catch(() => ({}))
+      throw new Error(body.message ?? 'Failed to start upload session.')
+    }
+    const { sessionId, uploadUrl } = (await sessionRes.json()) as GoogleSessionResult
+
+    let providerFileId: string
+    try {
+      providerFileId = await new Promise<string>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('PUT', uploadUrl, true)
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)))
+        }
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve((JSON.parse(xhr.responseText) as { id: string }).id)
+            } catch {
+              reject(new Error('Could not parse Google Drive response.'))
+            }
+          } else {
+            reject(new Error(`Google Drive upload failed with status ${xhr.status}`))
+          }
+        }
+        xhr.onerror = () => reject(new Error('Network error during direct upload to Google Drive.'))
+        xhr.send(file)
+      })
+    } catch (error) {
+      fetch(`${API_URL}/uploads/google/fail`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAccessToken()}` },
+        body: JSON.stringify({ sessionId, errorMessage: error instanceof Error ? error.message : 'Unknown error' }),
+      }).catch(() => undefined)
+      throw error
+    }
+
+    const completeRes = await fetch(`${API_URL}/uploads/google/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAccessToken()}` },
+      body: JSON.stringify({ sessionId, providerFileId, folderId }),
+    })
+    if (!completeRes.ok) {
+      const body = await completeRes.json().catch(() => ({}))
+      throw new Error(body.message ?? 'Failed to finalize upload.')
+    }
+    const { file: savedFile } = (await completeRes.json()) as GoogleCompleteResult
+
+    onProgress(100)
+    return { file: savedFile }
+  }
+
   async function uploadFile(event: FormEvent) {
     event.preventDefault()
     if (selectedFiles.length === 0) return
     setLoading(true)
     setMessage('')
-    try {
+    const targetFolderId = activeFolderId || selectedFolderId
+    const uploadingFiles = [...selectedFiles]
+
+    async function proxyUpload(): Promise<UploadResult> {
       const form = new FormData()
-      const targetFolderId = activeFolderId || selectedFolderId
-      const filesMeta = selectedFiles.map((file, index) => ({ fieldName: `file-${index}`, fileName: file.name, mimeType: file.type || 'application/octet-stream', sizeBytes: String(file.size), folderId: targetFolderId || undefined }))
+      const filesMeta = uploadingFiles.map((file, index) => ({ fieldName: `file-${index}`, fileName: file.name, mimeType: file.type || 'application/octet-stream', sizeBytes: String(file.size), folderId: targetFolderId || undefined }))
       form.append('filesMeta', JSON.stringify(filesMeta))
-      selectedFiles.forEach((file, index) => form.append(`file-${index}`, file))
-      const uploadingFiles = [...selectedFiles]
+      uploadingFiles.forEach((file, index) => form.append(`file-${index}`, file))
+      return uploadWithProgress(form, (percent) => setUploadProgress((current) => ({ ...current, percent, files: estimateUploadProgress(uploadingFiles, percent, 'uploading') })))
+    }
+
+    try {
       setUploadProgress({ open: true, fileName: uploadingFiles.length === 1 ? uploadingFiles[0].name : `${uploadingFiles.length} files`, percent: 0, status: 'uploading', files: estimateUploadProgress(uploadingFiles, 0, 'uploading') })
-      const uploadResult = await uploadWithProgress(form, (percent) => setUploadProgress((current) => ({ ...current, percent, files: estimateUploadProgress(uploadingFiles, percent, 'uploading') })))
+
+      let uploadResult: UploadResult
+      if (uploadingFiles.length === 1) {
+        // Single file: try the direct-to-Google-Drive path first (avoids
+        // Railway's request timeout on large files). Falls back to the
+        // proxied endpoint automatically if no Google Drive account fits.
+        const directResult = await uploadFileDirectToGoogle(uploadingFiles[0], targetFolderId || undefined, (percent) =>
+          setUploadProgress((current) => ({ ...current, percent, files: estimateUploadProgress(uploadingFiles, percent, 'uploading') })),
+        )
+        uploadResult = directResult ?? (await proxyUpload())
+      } else {
+        uploadResult = await proxyUpload()
+      }
+
       const uploadedCount = uploadResult.files?.length ?? (uploadResult.file ? 1 : selectedFiles.length)
       const failedCount = uploadResult.failed?.length ?? 0
       const failedNames = new Set((uploadResult.failed ?? []).map((file) => file.fileName).filter(Boolean))
