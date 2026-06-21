@@ -92,11 +92,14 @@ async function handleCompleteSession(req: AuthRequest, res: Response) {
   if (!session) {
     return res.status(404).json({ code: 'UPLOAD_SESSION_NOT_FOUND', message: 'Upload session not found or already completed.' })
   }
+  if (!session.targetConnectedAccountId) {
+    return res.status(400).json({ code: 'UPLOAD_SESSION_INVALID', message: 'Upload session is missing a target account.' })
+  }
 
   const file = await prisma.file.create({
     data: {
       userId: req.user!.id,
-      connectedAccountId: session.targetConnectedAccountId ?? undefined,
+      connectedAccountId: session.targetConnectedAccountId,
       folderId: folderId ?? undefined,
       provider: 'google_drive',
       providerFileId,
