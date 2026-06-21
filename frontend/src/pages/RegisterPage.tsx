@@ -16,6 +16,7 @@ declare global {
     grecaptcha?: {
       render: (element: HTMLElement, options: { sitekey: string; callback: (token: string) => void; 'expired-callback': () => void }) => number
       reset: (widgetId?: number) => void
+      ready: (callback: () => void) => void
     }
   }
 }
@@ -36,13 +37,16 @@ export function RegisterPage() {
     if (!recaptchaSiteKey) return
     const scriptId = 'google-recaptcha-script'
     const renderCaptcha = () => {
-      if (!recaptchaRef.current || !window.grecaptcha || recaptchaWidgetId.current !== null) return
-      recaptchaWidgetId.current = window.grecaptcha.render(recaptchaRef.current, {
-        sitekey: recaptchaSiteKey,
-        callback: setCaptchaToken,
-        'expired-callback': () => setCaptchaToken(''),
-      })
-    }
+     if (!recaptchaRef.current || !window.grecaptcha || recaptchaWidgetId.current !== null) return
+     window.grecaptcha.ready(() => {
+       if (!recaptchaRef.current || !window.grecaptcha || recaptchaWidgetId.current !== null) return
+       recaptchaWidgetId.current = window.grecaptcha.render(recaptchaRef.current, {
+         sitekey: recaptchaSiteKey,
+         callback: setCaptchaToken,
+         'expired-callback': () => setCaptchaToken(''),
+       })
+     })
+   }
 
     if (!document.getElementById(scriptId)) {
       const script = document.createElement('script')
