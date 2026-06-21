@@ -2,6 +2,7 @@ import { google } from 'googleapis'
 import type { ConnectedAccount, ProviderConfig } from '@prisma/client'
 import { prisma } from '../../config/prisma.js'
 import { decryptText, encryptText } from '../../utils/crypto.js'
+import { fetch } from 'undici'
 
 const googleDriveFolderMimeType = 'application/vnd.google-apps.folder'
 const appFolderName = '9drive'
@@ -88,6 +89,40 @@ export async function ensureGoogleAppFolder(account: ConnectedAccount) {
 
   if (!folderId) throw new Error('Failed to create Google Drive app folder.')
   return folderId
+}
+
+export async function createGoogleResumableSession(
+  account: ConnectedAccount,
+  fileName: string,
+  mimeType: string,
+): Promise<{ uploadUrl: string }> {
+  const auth = await getAuthedGoogleClient(account)
+  const accessToken = (await auth.getAccessToken()).token
+  if (!accessToken) throw new Error('Failed to obtain Google access token.')
+ 
+  const appFolderId = await ensureGoogleAppFolder(account)
+ 
+  const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json; charset=UTF-8',
+      // X-Upload-Content-Type tells Google what MIME type to expect for the
+      // bytes that will be PUT to the session URL later.
+      'X-Upload-Content-Type': mimeType,
+    },
+    body: JSON.stringify({ name: fileName, parents: [appFolderId] }),
+  })
+ 
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new Error(`Failed to create Google resumable upload session: ${response.status} ${text}`)
+  }
+ 
+  const uploadUrl = response.headers.get('location')
+  if (!uploadUrl) throw new Error('Google did not return a resumable upload session URL.')
+ 
+  return { uploadUrl }
 }
 
 export type GoogleAppFolderSyncResult = {
