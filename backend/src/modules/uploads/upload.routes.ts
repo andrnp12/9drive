@@ -154,23 +154,10 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
 
         const session = await prisma.uploadSession.create({ data: { userId: req.user!.id, targetConnectedAccountId: account.id, fileName, mimeType: meta.mimeType, sizeBytes: meta.sizeBytes, status: 'uploading' } })
         logUpload('file upload started', { sessionId: session.id, accountId: account.id, fileName, sizeBytes: meta.sizeBytes.toString() })
-
-        // IMPORTANT: set up byte counting, but do NOT pipe `fileStream` into
-        // anything yet. The busboy file stream has a small internal buffer —
-        // if nothing consumes it while we await network calls below (token
-        // refresh, Drive folder lookup, S3 config lookup), the buffer fills,
-        // busboy ends the stream, and whoever pipes it afterwards collides
-        // with that already-finished stream, producing
-        // "stream.push() after EOF". So: do every async prep step FIRST,
-        // and only pipe `fileStream` into its destination right before the
-        // destination actually starts consuming it.
         let streamedBytes = 0n
-        const countingStream = new PassThrough()
-        countingStream.on('data', (chunk: Buffer) => {
+        const trackBytes = (chunk: Buffer) => {
           streamedBytes += BigInt(chunk.length)
-        })
-        fileStream.on('error', (error) => countingStream.destroy(error instanceof Error ? error : new Error('File stream error')))
-        fileStream.pause() // hold the stream until a consumer is actually ready
+        }
 
         let providerFileId = ''
         let s3FileId: string | null = null
@@ -183,9 +170,8 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
           })
           s3FileId = provisionalFile.id
           providerFileId = buildS3ObjectKey(config, req.user!.id, provisionalFile.id, fileName)
-          // All async prep for S3 is done — now it's safe to start the flow.
-          fileStream.pipe(countingStream)
-          await uploadS3Object(config, providerFileId, countingStream, meta.mimeType)
+          fileStream.on('data', trackBytes)
+          await uploadS3Object(config, providerFileId, fileStream, meta.mimeType)
           await prisma.file.update({ where: { id: provisionalFile.id }, data: { providerFileId, status: 'active' } })
           completed.push({ ...provisionalFile, providerFileId, status: 'active', sizeBytes: provisionalFile.sizeBytes.toString() })
           logUpload('s3 upload completed', { sessionId: session.id, accountId: account.id, fileName })
@@ -193,9 +179,7 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
           const auth = await getAuthedGoogleClient(account)
           const drive = google.drive({ version: 'v3', auth })
           const appFolderId = await ensureGoogleAppFolder(account)
-          // All async prep for Google Drive (token refresh + folder lookup)
-          // is done — now it's safe to start the flow.
-          fileStream.pipe(countingStream)
+          fileStream.on('data', trackBytes)
           const uploaded = await drive.files.create({
             requestBody: { name: fileName, parents: [appFolderId] },
             media: { mimeType: meta.mimeType, body: countingStream },
