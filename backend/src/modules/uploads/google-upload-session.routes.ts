@@ -97,7 +97,7 @@ async function handleCompleteSession(req: AuthRequest, res: Response) {
     data: {
       userId: req.user!.id,
       connectedAccountId: session.targetConnectedAccountId,
-      folderId: folderId ?? null,
+      folderId: folderId ?? undefined,
       provider: 'google_drive',
       providerFileId,
       name: session.fileName,
