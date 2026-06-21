@@ -2,7 +2,6 @@ import Busboy from 'busboy'
 import type { NextFunction, Response } from 'express'
 import { Router } from 'express'
 import { google } from 'googleapis'
-import { PassThrough } from 'node:stream'
 import { env } from '../../config/env.js'
 import { prisma } from '../../config/prisma.js'
 import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.js'
@@ -182,7 +181,7 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
           fileStream.on('data', trackBytes)
           const uploaded = await drive.files.create({
             requestBody: { name: fileName, parents: [appFolderId] },
-            media: { mimeType: meta.mimeType, body: countingStream },
+            media: { mimeType: meta.mimeType, body: fileStream },
             fields: 'id,name,mimeType,size',
           })
           providerFileId = uploaded.data.id ?? ''
