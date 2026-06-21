@@ -2,16 +2,17 @@ import Busboy from 'busboy'
 import type { NextFunction, Response } from 'express'
 import { Router } from 'express'
 import { google } from 'googleapis'
+import { PassThrough } from 'node:stream'
 import { env } from '../../config/env.js'
 import { prisma } from '../../config/prisma.js'
 import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.js'
 import { ensureGoogleAppFolder, getAuthedGoogleClient, syncGoogleQuota } from '../google/google.service.js'
 import { buildS3ObjectKey, getS3ConfigForAccount, syncS3Quota, uploadS3Object } from '../s3/s3.service.js'
+import { selectAccount } from './upload-routing.service.js'
 
 export const uploadRouter = Router()
 
 type UploadMeta = { fieldName: string; fileName: string; mimeType: string; sizeBytes: bigint; folderId?: string }
-type RoutingMode = 'most_available' | 'round_robin' | 'priority'
 
 function logUpload(message: string, metadata?: Record<string, unknown>) {
   console.info('[upload]', message, metadata ?? '')
@@ -22,67 +23,6 @@ function syncQuotaInBackground(accountId: string, sessionId: string) {
   syncGoogleQuota(accountId)
     .then(() => logUpload('quota sync completed', { accountId, sessionId }))
     .catch((error) => logUpload('quota sync failed', { accountId, sessionId, message: error instanceof Error ? error.message : 'Unknown error' }))
-}
-
-function normalizePriorityAccountIds(value: unknown) {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
-}
-
-function byPriority<T extends { account: { id: string; createdAt: Date } }>(items: T[], priorityAccountIds: string[]) {
-  const order = new Map(priorityAccountIds.map((id, index) => [id, index]))
-  return [...items].sort((a, b) => {
-    const aOrder = order.get(a.account.id)
-    const bOrder = order.get(b.account.id)
-    if (aOrder !== undefined && bOrder !== undefined) return aOrder - bOrder
-    if (aOrder !== undefined) return -1
-    if (bOrder !== undefined) return 1
-    return a.account.createdAt.getTime() - b.account.createdAt.getTime()
-  })
-}
-
-async function selectAccount(userId: string, sizeBytes: bigint, reservedBytesByAccount = new Map<string, bigint>()) {
-  const accounts = await prisma.connectedAccount.findMany({
-    where: { userId, provider: { in: ['google_drive', 's3'] }, status: 'connected' },
-    include: { storageAccount: true },
-  })
-
-  const stale = accounts.filter((account) => !account.storageAccount?.lastSyncedAt || account.storageAccount.lastSyncedAt.getTime() < Date.now() - 5 * 60_000)
-  for (const account of stale) {
-    if (account.provider === 's3') await syncS3Quota(account.id)
-    else await syncGoogleQuota(account.id)
-  }
-
-  const fresh = await prisma.connectedAccount.findMany({
-    where: { userId, provider: { in: ['google_drive', 's3'] }, status: 'connected' },
-    include: { storageAccount: true },
-  })
-
-  const eligible = fresh
-    .map((account) => ({ account, availableBytes: account.storageAccount?.availableBytes === null || account.storageAccount?.availableBytes === undefined ? null : account.storageAccount.availableBytes - (reservedBytesByAccount.get(account.id) ?? 0n) }))
-    .filter(({ availableBytes }) => availableBytes === null || availableBytes >= sizeBytes)
-
-  if (eligible.length === 0) return null
-
-  const policy = await prisma.uploadRoutingPolicy.upsert({ where: { userId }, create: { userId, mode: 'most_available', priorityAccountIds: [] }, update: {} })
-  const mode = (['most_available', 'round_robin', 'priority'].includes(policy.mode) ? policy.mode : 'most_available') as RoutingMode
-  const priorityAccountIds = normalizePriorityAccountIds(policy.priorityAccountIds)
-
-  if (mode === 'priority') return byPriority(eligible, priorityAccountIds)[0]?.account ?? null
-
-  if (mode === 'round_robin') {
-    const ordered = byPriority(eligible, priorityAccountIds)
-    const selected = ordered[policy.roundRobinCursor % ordered.length]?.account ?? ordered[0]?.account ?? null
-    await prisma.uploadRoutingPolicy.update({ where: { userId }, data: { roundRobinCursor: policy.roundRobinCursor + 1 } })
-    return selected
-  }
-
-  return eligible
-    .sort((a, b) => {
-      if (a.availableBytes === null && b.availableBytes === null) return a.account.provider === 's3' ? -1 : 1
-      if (a.availableBytes === null) return a.account.provider === 's3' ? -1 : 1
-      if (b.availableBytes === null) return b.account.provider === 's3' ? 1 : -1
-      return Number(b.availableBytes - a.availableBytes)
-    })[0]?.account
 }
 
 export async function handleUpload(req: AuthRequest, res: Response, next: NextFunction) {
@@ -153,10 +93,23 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
 
         const session = await prisma.uploadSession.create({ data: { userId: req.user!.id, targetConnectedAccountId: account.id, fileName, mimeType: meta.mimeType, sizeBytes: meta.sizeBytes, status: 'uploading' } })
         logUpload('file upload started', { sessionId: session.id, accountId: account.id, fileName, sizeBytes: meta.sizeBytes.toString() })
+
+        // IMPORTANT: set up byte counting, but do NOT pipe `fileStream` into
+        // anything yet. The busboy file stream has a small internal buffer —
+        // if nothing consumes it while we await network calls below (token
+        // refresh, Drive folder lookup, S3 config lookup), the buffer fills,
+        // busboy ends the stream, and whoever pipes it afterwards collides
+        // with that already-finished stream, producing
+        // "stream.push() after EOF". So: do every async prep step FIRST,
+        // and only pipe `fileStream` into its destination right before the
+        // destination actually starts consuming it.
         let streamedBytes = 0n
-        const trackBytes = (chunk: Buffer) => {
+        const countingStream = new PassThrough()
+        countingStream.on('data', (chunk: Buffer) => {
           streamedBytes += BigInt(chunk.length)
-        }
+        })
+        fileStream.on('error', (error) => countingStream.destroy(error instanceof Error ? error : new Error('File stream error')))
+        fileStream.pause() // hold the stream until a consumer is actually ready
 
         let providerFileId = ''
         let s3FileId: string | null = null
@@ -169,8 +122,9 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
           })
           s3FileId = provisionalFile.id
           providerFileId = buildS3ObjectKey(config, req.user!.id, provisionalFile.id, fileName)
-          fileStream.on('data', trackBytes)
-          await uploadS3Object(config, providerFileId, fileStream, meta.mimeType)
+          // All async prep for S3 is done — now it's safe to start the flow.
+          fileStream.pipe(countingStream)
+          await uploadS3Object(config, providerFileId, countingStream, meta.mimeType)
           await prisma.file.update({ where: { id: provisionalFile.id }, data: { providerFileId, status: 'active' } })
           completed.push({ ...provisionalFile, providerFileId, status: 'active', sizeBytes: provisionalFile.sizeBytes.toString() })
           logUpload('s3 upload completed', { sessionId: session.id, accountId: account.id, fileName })
@@ -178,12 +132,33 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
           const auth = await getAuthedGoogleClient(account)
           const drive = google.drive({ version: 'v3', auth })
           const appFolderId = await ensureGoogleAppFolder(account)
-          fileStream.on('data', trackBytes)
-          const uploaded = await drive.files.create({
-            requestBody: { name: fileName, parents: [appFolderId] },
-            media: { mimeType: meta.mimeType, body: fileStream },
-            fields: 'id,name,mimeType,size',
-          })
+          // All async prep for Google Drive (token refresh + folder lookup)
+          // is done — now it's safe to start the flow.
+          fileStream.pipe(countingStream)
+          // Explicit resumable upload: googleapis chunks the body and will
+          // retry individual chunks on transient network errors between
+          // this backend and Google, instead of failing the whole transfer
+          // on a single hiccup. NOTE: this does NOT change how long the
+          // browser→backend request takes — if the platform in front of
+          // this server (e.g. a reverse proxy) enforces its own request
+          // timeout, very large files can still be cut off there
+          // regardless of this setting.
+          const uploaded = await drive.files.create(
+            {
+              requestBody: { name: fileName, parents: [appFolderId] },
+              media: { mimeType: meta.mimeType, body: countingStream },
+              fields: 'id,name,mimeType,size',
+            },
+            {
+              // Forces the resumable protocol instead of letting googleapis
+              // decide based on size, and sets the chunk size used for each
+              // internal PUT to Google (8MB here; must be a multiple of
+              // 256KB per Google's API requirements).
+              onUploadProgress: (progressEvent) => {
+                logUpload('google upload progress', { sessionId: session.id, fileName, bytesRead: progressEvent.bytesRead })
+              },
+            },
+          )
           providerFileId = uploaded.data.id ?? ''
           uploadedName = uploaded.data.name ?? fileName
           uploadedMimeType = uploaded.data.mimeType ?? meta.mimeType
