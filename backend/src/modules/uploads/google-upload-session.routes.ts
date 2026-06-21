@@ -96,7 +96,7 @@ async function handleCompleteSession(req: AuthRequest, res: Response) {
   const file = await prisma.file.create({
     data: {
       userId: req.user!.id,
-      connectedAccountId: session.targetConnectedAccountId,
+      connectedAccountId: session.targetConnectedAccountId ?? undefined,
       folderId: folderId ?? undefined,
       provider: 'google_drive',
       providerFileId,
