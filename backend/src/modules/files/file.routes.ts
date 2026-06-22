@@ -8,6 +8,7 @@ import { hashToken, randomToken } from '../../utils/crypto.js'
 import { getAuthedGoogleClient, syncGoogleAppFolderFiles, syncGoogleQuota } from '../google/google.service.js'
 import { deleteS3Object, syncS3Quota } from '../s3/s3.service.js'
 import { streamProviderFile } from './stream-file.js'
+import { getAuthedGoogleClient, syncGoogleAppFolderFiles, syncGoogleQuota, applyQuotaDelta } from '../google/google.service.js'
 
 export const fileRouter = Router()
 
@@ -120,10 +121,21 @@ fileRouter.delete('/batch', async (req: AuthRequest, res, next) => {
     }
 
     if (deletedIds.length > 0) await prisma.file.updateMany({ where: { id: { in: deletedIds }, userId: req.user!.id }, data: { status: 'deleted', deletedAt: new Date() } })
+
+    // Delta lokal per akun — kurangi quota sejumlah total bytes yang dihapus
+    const sizeByAccount = new Map<string, bigint>()
+    for (const file of files.filter((f) => deletedIds.includes(f.id))) {
+      sizeByAccount.set(file.connectedAccountId, (sizeByAccount.get(file.connectedAccountId) ?? 0n) + file.sizeBytes)
+    }
+    for (const [accountId, totalBytes] of sizeByAccount) {
+      await applyQuotaDelta(accountId, -totalBytes).catch(() => undefined)
+    }
+
+    // Sync ke Google di background — tidak await, tidak blocking response
     for (const accountId of syncedAccountIds) {
-      const account = files.find((file) => file.connectedAccountId === accountId)?.connectedAccount
-      if (account?.provider === 's3') await syncS3Quota(accountId).catch(() => undefined)
-      else await syncGoogleQuota(accountId).catch(() => undefined)
+      const account = files.find((f) => f.connectedAccountId === accountId)?.connectedAccount
+      if (account?.provider === 's3') syncS3Quota(accountId).catch(() => undefined)
+      else syncGoogleQuota(accountId).catch(() => undefined)
     }
     if (deletedIds.length === 0 && failed.length > 0) return res.status(400).json({ code: 'FILES_DELETE_FAILED', message: 'No files were deleted.', deleted: 0, failed })
     return res.json({ status: 'ok', deleted: deletedIds.length, failed })
@@ -302,8 +314,11 @@ fileRouter.delete('/:id', async (req: AuthRequest, res, next) => {
       await drive.files.delete({ fileId: file.providerFileId })
     }
     await prisma.file.update({ where: { id: file.id }, data: { status: 'deleted', deletedAt: new Date() } })
-    if (file.provider === 's3') await syncS3Quota(file.connectedAccountId)
-    else await syncGoogleQuota(file.connectedAccountId)
+    // Delta lokal — langsung kurangi quota tanpa tunggu Google
+    await applyQuotaDelta(file.connectedAccountId, -file.sizeBytes).catch(() => undefined)
+    // Sync ke Google di background sebagai koreksi, tidak await
+    if (file.provider === 's3') syncS3Quota(file.connectedAccountId).catch(() => undefined)
+    else syncGoogleQuota(file.connectedAccountId).catch(() => undefined)
     return res.json({ status: 'ok' })
   } catch (error) {
     return next(error)
