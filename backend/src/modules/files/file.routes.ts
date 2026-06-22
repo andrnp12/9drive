@@ -194,6 +194,33 @@ fileRouter.post('/:id/preview-token', async (req: AuthRequest, res, next) => {
   }
 })
 
+fileRouter.get('/:id/thumbnail-url', requireAuth, async (req: AuthRequest, res, next) => {
+  try {
+    const file = await prisma.file.findFirstOrThrow({
+      where: { id: String(req.params.id), userId: req.user!.id, status: 'active' },
+      include: { connectedAccount: true },
+    })
+    if (file.provider !== 'google_drive') {
+      return res.status(404).json({ code: 'NO_THUMBNAIL', message: 'Thumbnails only available for Google Drive files.' })
+    }
+    const auth = await getAuthedGoogleClient(file.connectedAccount)
+    const drive = google.drive({ version: 'v3', auth })
+    const metadata = await drive.files.get({
+      fileId: file.providerFileId,
+      fields: 'thumbnailLink',
+    })
+    const thumbnailLink = metadata.data.thumbnailLink
+    if (!thumbnailLink) {
+      return res.status(404).json({ code: 'NO_THUMBNAIL', message: 'Thumbnail not yet available for this file.' })
+    }
+    // Ganti ukuran thumbnail — default Google ~220px, kita minta 400px untuk kualitas cukup
+    const url = thumbnailLink.replace(/=s\d+$/, '=s400')
+    return res.status(200).json({ url })
+  } catch (error) {
+    return next(error)
+  }
+})
+
 fileRouter.get('/:id/view-url', async (req: AuthRequest, res, next) => {
   try {
     const fileId = String(req.params.id)
