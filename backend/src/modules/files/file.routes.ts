@@ -27,11 +27,57 @@ fileRouter.get('/preview/:token', async (req, res, next) => {
 
 fileRouter.use(requireAuth)
 
+// GANTI HANYA bagian ini di file.routes.ts Anda:
+// fileRouter.get('/', ...) — endpoint GET /files
+
 fileRouter.get('/', async (req: AuthRequest, res, next) => {
   try {
-    const query = z.object({ folderId: z.string().optional(), q: z.string().trim().max(255).optional() }).parse(req.query)
-    const files = await prisma.file.findMany({ where: { userId: req.user!.id, status: 'active', ...(query.folderId ? { folderId: query.folderId } : {}), ...(query.q ? { name: { contains: query.q } } : {}) }, include: { connectedAccount: { select: { id: true, email: true, provider: true } }, folder: { select: { id: true, name: true } } }, orderBy: { createdAt: 'desc' } })
-    return res.json({ files: files.map((file) => ({ ...file, sizeBytes: file.sizeBytes.toString() })) })
+    const query = z.object({
+      folderId: z.string().optional(),
+      q: z.string().trim().max(255).optional(),
+      page: z.coerce.number().int().min(1).default(1),
+      limit: z.coerce.number().int().min(1).max(200).default(100),
+    }).parse(req.query)
+
+    const skip = (query.page - 1) * query.limit
+
+    const [files, total] = await Promise.all([
+      prisma.file.findMany({
+        where: {
+          userId: req.user!.id,
+          status: 'active',
+          ...(query.folderId ? { folderId: query.folderId } : {}),
+          ...(query.q ? { name: { contains: query.q } } : {}),
+        },
+        include: {
+          connectedAccount: { select: { id: true, email: true, provider: true } },
+          folder: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: query.limit,
+      }),
+      prisma.file.count({
+        where: {
+          userId: req.user!.id,
+          status: 'active',
+          ...(query.folderId ? { folderId: query.folderId } : {}),
+          ...(query.q ? { name: { contains: query.q } } : {}),
+        },
+      }),
+    ])
+
+    return res.json({
+      files: files.map((file) => ({ ...file, sizeBytes: file.sizeBytes.toString() })),
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total,
+        totalPages: Math.ceil(total / query.limit),
+        hasNext: query.page * query.limit < total,
+        hasPrev: query.page > 1,
+      },
+    })
   } catch (error) {
     return next(error)
   }
