@@ -240,25 +240,19 @@ export function AllFilesPage() {
     }
     const { sessionId, uploadUrl } = (await sessionRes.json()) as GoogleSessionResult
 
-    let providerFileId: string
     try {
-      providerFileId = await new Promise<string>((resolve, reject) => {
+      await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
         xhr.open('PUT', uploadUrl, true)
         xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
         xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable) onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)))
+          if (event.lengthComputable) onProgress(Math.min(98, Math.round((event.loaded / event.total) * 100)))
         }
         xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              resolve((JSON.parse(xhr.responseText) as { id: string }).id)
-            } catch {
-              reject(new Error('Could not parse Google Drive response.'))
-            }
-          } else {
-            reject(new Error(`Google Drive upload failed with status ${xhr.status}`))
-          }
+          // Google returns 200 or 201 on success. We do NOT read xhr.responseText
+          // here — it's blocked by CORS. The backend will look up the file ID itself.
+          if (xhr.status >= 200 && xhr.status < 300) resolve()
+          else reject(new Error(`Google Drive upload failed with status ${xhr.status}`))
         }
         xhr.onerror = () => reject(new Error('Network error during direct upload to Google Drive.'))
         xhr.send(file)
@@ -272,10 +266,12 @@ export function AllFilesPage() {
       throw error
     }
 
+    // PUT succeeded — ask backend to look up the file ID in Google Drive.
+    onProgress(99)
     const completeRes = await fetch(`${API_URL}/uploads/google/complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAccessToken()}` },
-      body: JSON.stringify({ sessionId, providerFileId, folderId }),
+      body: JSON.stringify({ sessionId, folderId }),
     })
     if (!completeRes.ok) {
       const body = await completeRes.json().catch(() => ({}))
