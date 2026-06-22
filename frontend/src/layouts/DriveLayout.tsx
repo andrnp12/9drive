@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Bell,
@@ -176,6 +176,10 @@ export function DriveLayout() {
   const [updatesError, setUpdatesError] = useState('')
   const [updatesLoaded, setUpdatesLoaded] = useState(false)
 
+  // Use a ref so the event listener always calls the latest version of
+  // loadSidebarStats without needing to re-register on every render.
+  const loadSidebarStatsRef = useRef<() => Promise<void>>()
+
   async function loadSidebarStats() {
     await Promise.all([
       apiFetch<StorageSummary>('/storage/summary').then(setStorage),
@@ -183,9 +187,27 @@ export function DriveLayout() {
     ])
   }
 
+  // Keep ref in sync with latest function instance.
+  loadSidebarStatsRef.current = loadSidebarStats
+
   useEffect(() => {
-    setSearchValue(searchParams.get('q') ?? '')
-  }, [searchParams])
+    apiFetch<{ user: AuthUser }>('/auth/me')
+      .then((data) => {
+        setUser(data.user)
+        updateStoredUser(data.user)
+      })
+      .catch(() => undefined)
+    loadSidebarStats().catch(() => undefined)
+ 
+    function onStorageChanged() {
+      // Call via ref so we always use the latest closure, not a stale one.
+      loadSidebarStatsRef.current?.().catch(() => undefined)
+    }
+ 
+    window.addEventListener('9drive:storage-changed', onStorageChanged)
+    return () => window.removeEventListener('9drive:storage-changed', onStorageChanged)
+  }, [])
+
 
   async function logout() {
     await apiFetch('/auth/logout', { method: 'POST' }).catch(() => undefined)
