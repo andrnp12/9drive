@@ -241,21 +241,29 @@ export function AllFilesPage() {
     const { sessionId, uploadUrl } = (await sessionRes.json()) as GoogleSessionResult
 
     try {
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-        xhr.open('PUT', uploadUrl, true)
-        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable) onProgress(Math.min(98, Math.round((event.loaded / event.total) * 100)))
-        }
-        xhr.onload = () => {
-          // Google returns 200 or 201 on success. We do NOT read xhr.responseText
-          // here — it's blocked by CORS. The backend will look up the file ID itself.
-          if (xhr.status >= 200 && xhr.status < 300) resolve()
-          else reject(new Error(`Google Drive upload failed with status ${xhr.status}`))
-        }
-        xhr.onerror = () => reject(new Error('Network error during direct upload to Google Drive.'))
-        xhr.send(file)
+      // Use fetch() with mode: 'no-cors' for the PUT to Google Drive.
+      // XHR triggers onerror when CORS headers are missing even on a
+      // successful 200 — fetch with no-cors avoids that entirely.
+      // We cannot read the response (opaque), but we don't need to:
+      // the backend queries Google Drive directly to get the file ID.
+      // Progress tracking uses a separate ReadableStream transform.
+      const totalBytes = file.size
+      let uploadedBytes = 0
+      const progressStream = new TransformStream({
+        transform(chunk, controller) {
+          uploadedBytes += chunk.byteLength
+          onProgress(Math.min(98, Math.round((uploadedBytes / Math.max(totalBytes, 1)) * 100)))
+          controller.enqueue(chunk)
+        },
+      })
+      const fileStream = file.stream().pipeThrough(progressStream)
+      await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: fileStream,
+        // @ts-expect-error duplex is required for streaming body but not yet in TS types
+        duplex: 'half',
+        mode: 'no-cors',
       })
     } catch (error) {
       fetch(`${API_URL}/uploads/google/fail`, {
