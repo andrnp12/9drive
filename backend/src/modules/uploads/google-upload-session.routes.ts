@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { prisma } from '../../config/prisma.js'
 import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.js'
 import { createGoogleResumableSession } from '../google/google.service.js'
+import { selectAccount } from './upload-routing.service.js'
 
 export const googleUploadSessionRouter = Router()
 
@@ -144,6 +145,30 @@ async function handleFailSession(req: AuthRequest, res: Response) {
 
   return res.status(200).json({ ok: true })
 }
+
+async function handleBestAccount(req: AuthRequest, res: Response) {
+  const sizeBytesRaw = req.query.sizeBytes
+  if (typeof sizeBytesRaw !== 'string' || !sizeBytesRaw) {
+    return res.status(400).json({ code: 'SIZE_BYTES_REQUIRED', message: 'sizeBytes query parameter is required.' })
+  }
+  let sizeBytes: bigint
+  try {
+    sizeBytes = BigInt(sizeBytesRaw)
+  } catch {
+    return res.status(400).json({ code: 'SIZE_BYTES_INVALID', message: 'sizeBytes must be a valid integer.' })
+  }
+
+  const account = await selectAccount(req.user!.id, sizeBytes, new Map(), ['google_drive'])
+  if (!account) {
+    return res.status(404).json({ code: 'NO_ACCOUNT_WITH_ENOUGH_SPACE', message: 'No connected Google Drive account has enough space for this upload.' })
+  }
+
+  return res.status(200).json({ accountId: account.id })
+}
+
+googleUploadSessionRouter.get('/google/best-account', requireAuth, (req, res, next) => {
+  handleBestAccount(req as AuthRequest, res).catch(next)
+})
 
 googleUploadSessionRouter.post('/google/session', requireAuth, (req, res, next) => {
   handleCreateSession(req as AuthRequest, res).catch(next)
