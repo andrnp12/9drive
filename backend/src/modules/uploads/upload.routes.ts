@@ -9,6 +9,7 @@ import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.
 import { ensureGoogleAppFolder, getAuthedGoogleClient, syncGoogleQuota } from '../google/google.service.js'
 import { buildS3ObjectKey, getS3ConfigForAccount, syncS3Quota, uploadS3Object } from '../s3/s3.service.js'
 import { selectAccount } from './upload-routing.service.js'
+import { ensureGoogleAppFolder, getAuthedGoogleClient, syncGoogleQuota, applyQuotaDelta } from '../google/google.service.js'
 
 export const uploadRouter = Router()
 
@@ -18,8 +19,9 @@ function logUpload(message: string, metadata?: Record<string, unknown>) {
   console.info('[upload]', message, metadata ?? '')
 }
 
-function syncQuotaInBackground(accountId: string, sessionId: string) {
-  logUpload('quota sync started', { accountId, sessionId })
+function triggerBackgroundQuotaSync(accountId: string, sessionId: string) {
+  // Delta sudah diapply secara sinkron setelah upload — sync ini cuma koreksi
+  logUpload('quota sync started (background)', { accountId, sessionId })
   syncGoogleQuota(accountId)
     .then(() => logUpload('quota sync completed', { accountId, sessionId }))
     .catch((error) => logUpload('quota sync failed', { accountId, sessionId, message: error instanceof Error ? error.message : 'Unknown error' }))
@@ -126,6 +128,9 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
           fileStream.pipe(countingStream)
           await uploadS3Object(config, providerFileId, countingStream, meta.mimeType)
           await prisma.file.update({ where: { id: provisionalFile.id }, data: { providerFileId, status: 'active' } })
+          // Delta lokal — tambah quota langsung, tanpa tunggu background sync
+          await applyQuotaDelta(account.id, meta.sizeBytes).catch(() => undefined)
+          triggerBackgroundQuotaSync(account.id, session.id)
           completed.push({ ...provisionalFile, providerFileId, status: 'active', sizeBytes: provisionalFile.sizeBytes.toString() })
           logUpload('s3 upload completed', { sessionId: session.id, accountId: account.id, fileName })
         } else {
