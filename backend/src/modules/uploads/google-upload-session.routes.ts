@@ -1,21 +1,33 @@
 import type { Response } from 'express'
 import { Router } from 'express'
+import { google } from 'googleapis'
 import { z } from 'zod'
 import { prisma } from '../../config/prisma.js'
 import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.js'
-import { createGoogleResumableSession } from '../google/google.service.js'
+import { createGoogleResumableSession, ensureGoogleAppFolder, getAuthedGoogleClient } from '../google/google.service.js'
 import { selectAccount } from './upload-routing.service.js'
 
 export const googleUploadSessionRouter = Router()
 
-// ---------------------------------------------------------------------------
-// STEP 1: Frontend asks the backend to open a resumable upload session with
-// Google Drive. The backend never sees the file bytes here — it only talks
-// to Google to get back a short-lived upload URL, then hands that URL to the
-// browser. The browser will PUT the file bytes directly to Google from here
-// on, completely bypassing the Railway backend (and therefore its request
-// timeout) for the actual file transfer.
-// ---------------------------------------------------------------------------
+async function handleBestAccount(req: AuthRequest, res: Response) {
+  const sizeBytesRaw = req.query.sizeBytes
+  if (typeof sizeBytesRaw !== 'string' || !sizeBytesRaw) {
+    return res.status(400).json({ code: 'SIZE_BYTES_REQUIRED', message: 'sizeBytes query parameter is required.' })
+  }
+  let sizeBytes: bigint
+  try {
+    sizeBytes = BigInt(sizeBytesRaw)
+  } catch {
+    return res.status(400).json({ code: 'SIZE_BYTES_INVALID', message: 'sizeBytes must be a valid integer.' })
+  }
+
+  const account = await selectAccount(req.user!.id, sizeBytes, new Map(), ['google_drive'])
+  if (!account) {
+    return res.status(404).json({ code: 'NO_ACCOUNT_WITH_ENOUGH_SPACE', message: 'No connected Google Drive account has enough space for this upload.' })
+  }
+
+  return res.status(200).json({ accountId: account.id })
+}
 
 const createSessionSchema = z.object({
   accountId: z.string().min(1),
@@ -41,9 +53,8 @@ async function handleCreateSession(req: AuthRequest, res: Response) {
   }
 
   if (folderId) {
-    await prisma.folder.findFirstOrThrow({ where: { id: folderId, userId: req.user!.id, deletedAt: null } }).catch(() => {
-      throw Object.assign(new Error('Folder not found.'), { statusCode: 404, code: 'FOLDER_NOT_FOUND' })
-    })
+    const folder = await prisma.folder.findFirst({ where: { id: folderId, userId: req.user!.id, deletedAt: null } })
+    if (!folder) return res.status(404).json({ code: 'FOLDER_NOT_FOUND', message: 'Folder not found.' })
   }
 
   const { uploadUrl } = await createGoogleResumableSession(account, fileName, mimeType)
@@ -59,24 +70,19 @@ async function handleCreateSession(req: AuthRequest, res: Response) {
     },
   })
 
-  return res.status(201).json({
-    sessionId: session.id,
-    uploadUrl,
-    // The browser PUTs the raw file bytes to this URL directly.
-    // No Authorization header to our API is needed for the PUT itself —
-    // Google's resumable session URL is already scoped and short-lived.
-  })
+  return res.status(201).json({ sessionId: session.id, uploadUrl })
 }
 
 // ---------------------------------------------------------------------------
-// STEP 2: After the browser finishes PUTting the file bytes directly to the
-// uploadUrl from step 1, it calls this endpoint so we can record the file in
-// our own database (mirrors what uploadOne() does for the proxied path).
+// STEP 2: After the browser finishes PUTting the file bytes directly to
+// Google Drive, it calls this endpoint. The backend looks up the newly
+// uploaded file in Google Drive by name (within the 9drive app folder) so
+// the frontend never needs to parse the cross-origin PUT response body
+// (which would be blocked by CORS anyway).
 // ---------------------------------------------------------------------------
 
 const completeSessionSchema = z.object({
   sessionId: z.string().min(1),
-  providerFileId: z.string().min(1),
   folderId: z.string().optional(),
 })
 
@@ -85,27 +91,48 @@ async function handleCompleteSession(req: AuthRequest, res: Response) {
   if (!parsed.success) {
     return res.status(400).json({ code: 'UPLOAD_SESSION_INVALID_BODY', message: parsed.error.issues[0]?.message ?? 'Invalid request body.' })
   }
-  const { sessionId, providerFileId, folderId } = parsed.data
+  const { sessionId, folderId } = parsed.data
 
   const session = await prisma.uploadSession.findFirst({
     where: { id: sessionId, userId: req.user!.id, status: 'uploading' },
+    include: { targetConnectedAccount: true },
   })
-  if (!session) {
+  if (!session || !session.targetConnectedAccount) {
     return res.status(404).json({ code: 'UPLOAD_SESSION_NOT_FOUND', message: 'Upload session not found or already completed.' })
   }
-  if (!session.targetConnectedAccountId) {
-    return res.status(400).json({ code: 'UPLOAD_SESSION_INVALID', message: 'Upload session is missing a target account.' })
+
+  const account = session.targetConnectedAccount
+
+  // Look up the file in Google Drive by name within the 9drive app folder.
+  // The browser cannot read the PUT response body due to CORS, so we query
+  // Google Drive directly here to get the providerFileId.
+  const auth = await getAuthedGoogleClient(account)
+  const drive = google.drive({ version: 'v3', auth })
+  const appFolderId = await ensureGoogleAppFolder(account)
+
+  const escapedName = session.fileName.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+  const listRes = await drive.files.list({
+    q: `name = '${escapedName}' and '${appFolderId}' in parents and trashed = false`,
+    fields: 'files(id,name,mimeType,size)',
+    orderBy: 'createdTime desc',
+    pageSize: 1,
+    spaces: 'drive',
+  })
+
+  const driveFile = listRes.data.files?.[0]
+  if (!driveFile?.id) {
+    return res.status(404).json({ code: 'DRIVE_FILE_NOT_FOUND', message: 'File not found in Google Drive after upload. It may still be processing — try syncing in a moment.' })
   }
 
   const file = await prisma.file.create({
     data: {
       userId: req.user!.id,
-      connectedAccountId: session.targetConnectedAccountId,
-      folderId: folderId ?? undefined,
+      connectedAccountId: account.id,
+      folderId: folderId ?? null,
       provider: 'google_drive',
-      providerFileId,
+      providerFileId: driveFile.id,
       name: session.fileName,
-      mimeType: session.mimeType,
+      mimeType: driveFile.mimeType ?? session.mimeType,
       sizeBytes: session.sizeBytes,
     },
   })
@@ -114,12 +141,6 @@ async function handleCompleteSession(req: AuthRequest, res: Response) {
 
   return res.status(201).json({ file: { ...file, sizeBytes: file.sizeBytes.toString() } })
 }
-
-// ---------------------------------------------------------------------------
-// STEP 2b (optional but recommended): if the browser-side upload fails or is
-// abandoned, let the frontend mark the session as failed so it doesn't sit
-// as "uploading" forever.
-// ---------------------------------------------------------------------------
 
 const failSessionSchema = z.object({
   sessionId: z.string().min(1),
@@ -146,30 +167,9 @@ async function handleFailSession(req: AuthRequest, res: Response) {
   return res.status(200).json({ ok: true })
 }
 
-async function handleBestAccount(req: AuthRequest, res: Response) {
-  const sizeBytesRaw = req.query.sizeBytes
-  if (typeof sizeBytesRaw !== 'string' || !sizeBytesRaw) {
-    return res.status(400).json({ code: 'SIZE_BYTES_REQUIRED', message: 'sizeBytes query parameter is required.' })
-  }
-  let sizeBytes: bigint
-  try {
-    sizeBytes = BigInt(sizeBytesRaw)
-  } catch {
-    return res.status(400).json({ code: 'SIZE_BYTES_INVALID', message: 'sizeBytes must be a valid integer.' })
-  }
-
-  const account = await selectAccount(req.user!.id, sizeBytes, new Map(), ['google_drive'])
-  if (!account) {
-    return res.status(404).json({ code: 'NO_ACCOUNT_WITH_ENOUGH_SPACE', message: 'No connected Google Drive account has enough space for this upload.' })
-  }
-
-  return res.status(200).json({ accountId: account.id })
-}
-
 googleUploadSessionRouter.get('/google/best-account', requireAuth, (req, res, next) => {
   handleBestAccount(req as AuthRequest, res).catch(next)
 })
-
 googleUploadSessionRouter.post('/google/session', requireAuth, (req, res, next) => {
   handleCreateSession(req as AuthRequest, res).catch(next)
 })
