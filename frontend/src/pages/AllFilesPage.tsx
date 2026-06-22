@@ -240,39 +240,28 @@ export function AllFilesPage() {
     }
     const { sessionId, uploadUrl } = (await sessionRes.json()) as GoogleSessionResult
 
-    try {
-      // Use fetch() with mode: 'no-cors' for the PUT to Google Drive.
-      // XHR triggers onerror when CORS headers are missing even on a
-      // successful 200 — fetch with no-cors avoids that entirely.
-      // We cannot read the response (opaque), but we don't need to:
-      // the backend queries Google Drive directly to get the file ID.
-      // Progress tracking uses a separate ReadableStream transform.
-      const totalBytes = file.size
-      let uploadedBytes = 0
-      const progressStream = new TransformStream({
-        transform(chunk, controller) {
-          uploadedBytes += chunk.byteLength
-          onProgress(Math.min(98, Math.round((uploadedBytes / Math.max(totalBytes, 1)) * 100)))
-          controller.enqueue(chunk)
-        },
-      })
-      const fileStream = file.stream().pipeThrough(progressStream)
-      await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type || 'application/octet-stream' },
-        body: fileStream,
-        // @ts-expect-error duplex is required for streaming body but not yet in TS types
-        duplex: 'half',
-        mode: 'no-cors',
-      })
-    } catch (error) {
-      fetch(`${API_URL}/uploads/google/fail`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAccessToken()}` },
-        body: JSON.stringify({ sessionId, errorMessage: error instanceof Error ? error.message : 'Unknown error' }),
-      }).catch(() => undefined)
-      throw error
-    }
+    // PUT the file bytes directly to Google Drive via XHR.
+    // IMPORTANT: Google's upload endpoint does not send CORS headers, so the
+    // browser will fire xhr.onerror even when the upload actually succeeds
+    // (status 200/201 visible in DevTools). We therefore treat onerror as
+    // "possibly succeeded" rather than a definite failure — the backend will
+    // verify by querying Google Drive when we call /complete.
+    // If the upload genuinely failed, /complete will return 404 and we surface
+    // that error to the user instead.
+    await new Promise<void>((resolve) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('PUT', uploadUrl, true)
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) onProgress(Math.min(98, Math.round((event.loaded / event.total) * 100)))
+      }
+      // Resolve on any terminal event — success or CORS-blocked onerror.
+      // The /complete endpoint will tell us whether the file actually landed.
+      xhr.onload = () => resolve()
+      xhr.onerror = () => resolve()
+      xhr.onabort = () => resolve()
+      xhr.send(file)
+    })
 
     // PUT succeeded — ask backend to look up the file ID in Google Drive.
     onProgress(99)
