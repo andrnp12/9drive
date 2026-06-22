@@ -176,36 +176,20 @@ export function DriveLayout() {
   const [updatesError, setUpdatesError] = useState('')
   const [updatesLoaded, setUpdatesLoaded] = useState(false)
 
+  const loadSidebarStatsRef = useRef<(() => Promise<void>) | null>(null)
+
   async function loadSidebarStats() {
     await Promise.all([
       apiFetch<StorageSummary>('/storage/summary').then(setStorage),
       apiFetch<StorageBreakdown>('/storage/breakdown').then(setBreakdown),
     ])
   }
- 
-  // Selalu pegang versi terbaru loadSidebarStats, supaya listener event yang
-  // didaftarkan sekali (mount-only) di bawah tidak pernah memanggil closure basi.
-  const loadSidebarStatsRef = useRef(loadSidebarStats)
-  loadSidebarStatsRef.current = loadSidebarStats
+  
+ loadSidebarStatsRef.current = loadSidebarStats
 
-  useEffect(() => {
-    apiFetch<{ user: AuthUser }>('/auth/me')
-      .then((data) => {
-        setUser(data.user)
-        updateStoredUser(data.user)
-      })
-      .catch(() => undefined)
-    loadSidebarStats().catch(() => undefined)
- 
-    function onStorageChanged() {
-      // Call via ref so we always use the latest closure, not a stale one.
-      loadSidebarStatsRef.current?.().catch(() => undefined)
-    }
- 
-    window.addEventListener('9drive:storage-changed', onStorageChanged)
-    return () => window.removeEventListener('9drive:storage-changed', onStorageChanged)
-  }, [])
-
+ useEffect(() => {
+    setSearchValue(searchParams.get('q') ?? '')
+  }, [searchParams])
 
   async function logout() {
     await apiFetch('/auth/logout', { method: 'POST' }).catch(() => undefined)
@@ -259,9 +243,16 @@ export function DriveLayout() {
       })
       .catch(() => undefined)
     loadSidebarStats().catch(() => undefined)
-    window.addEventListener('9drive:storage-changed', loadSidebarStats)
-    return () => window.removeEventListener('9drive:storage-changed', loadSidebarStats)
+ 
+    function onStorageChanged() {
+      // Call via ref so we always use the latest closure, not a stale one.
+      loadSidebarStatsRef.current?.().catch(() => undefined)
+    }
+ 
+    window.addEventListener('9drive:storage-changed', onStorageChanged)
+    return () => window.removeEventListener('9drive:storage-changed', onStorageChanged)
   }, [])
+
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
