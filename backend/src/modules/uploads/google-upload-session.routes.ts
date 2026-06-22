@@ -6,6 +6,7 @@ import { prisma } from '../../config/prisma.js'
 import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.js'
 import { createGoogleResumableSession, ensureGoogleAppFolder, getAuthedGoogleClient, syncGoogleQuota } from '../google/google.service.js'
 import { selectAccount } from './upload-routing.service.js'
+import { createGoogleResumableSession, ensureGoogleAppFolder, getAuthedGoogleClient, applyQuotaDelta, syncGoogleQuota } from '../google/google.service.js'
 
 export const googleUploadSessionRouter = Router()
 
@@ -157,6 +158,9 @@ async function handleCompleteSession(req: AuthRequest, res: Response) {
 
   return res.status(201).json({ file: { ...file, sizeBytes: file.sizeBytes.toString() } })
 }
+
+await applyQuotaDelta(account.id, session.sizeBytes).catch(() => undefined)
+  syncGoogleQuota(account.id).catch(() => undefined)
 
 const failSessionSchema = z.object({
   sessionId: z.string().min(1),
