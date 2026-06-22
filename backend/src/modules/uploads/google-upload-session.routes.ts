@@ -4,7 +4,6 @@ import { google } from 'googleapis'
 import { z } from 'zod'
 import { prisma } from '../../config/prisma.js'
 import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.js'
-import { createGoogleResumableSession, ensureGoogleAppFolder, getAuthedGoogleClient, syncGoogleQuota } from '../google/google.service.js'
 import { selectAccount } from './upload-routing.service.js'
 import { createGoogleResumableSession, ensureGoogleAppFolder, getAuthedGoogleClient, applyQuotaDelta, syncGoogleQuota } from '../google/google.service.js'
 
@@ -151,16 +150,14 @@ async function handleCompleteSession(req: AuthRequest, res: Response) {
 
   await prisma.uploadSession.update({ where: { id: session.id }, data: { status: 'completed', completedAt: new Date() } })
 
-  // Await quota sync before responding so the sidebar storage stats are
-  // already accurate when the frontend fetches /storage/summary immediately
-  // after this response. The ~1-2s extra wait is worth the accuracy.
-  await syncGoogleQuota(account.id).catch(() => undefined)
+  // Delta lokal — langsung tambah quota terpakai tanpa menunggu Google,
+  // supaya /storage/summary akurat begitu frontend fetch setelah respons ini.
+  await applyQuotaDelta(account.id, session.sizeBytes).catch(() => undefined)
+  // Sync ke Google di background sebagai koreksi — tidak di-await, tidak blocking response.
+  syncGoogleQuota(account.id).catch(() => undefined)
 
   return res.status(201).json({ file: { ...file, sizeBytes: file.sizeBytes.toString() } })
 }
-
-await applyQuotaDelta(account.id, session.sizeBytes).catch(() => undefined)
-  syncGoogleQuota(account.id).catch(() => undefined)
 
 const failSessionSchema = z.object({
   sessionId: z.string().min(1),
