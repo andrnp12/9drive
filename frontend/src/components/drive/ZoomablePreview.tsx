@@ -1,4 +1,4 @@
-import { useState, useRef, type ReactNode, type WheelEvent, type PointerEvent, type TouchEvent } from 'react'
+import { useState, useRef, type ReactNode, type WheelEvent, type PointerEvent, type TouchEvent, type DragEvent } from 'react'
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -60,20 +60,45 @@ export function ZoomablePreview({ children }: { children: ReactNode }) {
     scale > 1 ? applyScale(1) : applyScale(2.5)
   }
 
-  function handleTouchMove(e: TouchEvent<HTMLDivElement>) {
-    if (e.touches.length !== 2) return
-    e.preventDefault()
-    const t1 = e.touches[0]!
-    const t2 = e.touches[1]!
-    const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY)
-    if (lastPinchDist.current !== null) {
-      applyScale(scale * (dist / lastPinchDist.current))
+  function handleTouchStart(e: TouchEvent<HTMLDivElement>) {
+    if (e.touches.length === 1) {
+      const t = e.touches[0]!
+      lastPointer.current = { x: t.clientX, y: t.clientY }
     }
-    lastPinchDist.current = dist
+  }
+
+  function handleTouchMove(e: TouchEvent<HTMLDivElement>) {
+    if (e.touches.length === 2) {
+      e.preventDefault()
+      const t1 = e.touches[0]!
+      const t2 = e.touches[1]!
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY)
+      if (lastPinchDist.current !== null) {
+        applyScale(scale * (dist / lastPinchDist.current))
+      }
+      lastPinchDist.current = dist
+      return
+    }
+    if (e.touches.length === 1 && scale > 1) {
+      e.preventDefault()
+      const t = e.touches[0]!
+      const dx = t.clientX - lastPointer.current.x
+      const dy = t.clientY - lastPointer.current.y
+      lastPointer.current = { x: t.clientX, y: t.clientY }
+      const { x, y } = clamp(scale, pos.x + dx, pos.y + dy)
+      setPos({ x, y })
+    }
   }
 
   function handleTouchEnd() {
     lastPinchDist.current = null
+  }
+
+  // Mencegah browser memulai native HTML5 drag (yang membuat gambar
+  // seolah "terbang" dan bisa di-drop ke tab/file baru) saat user
+  // menahan lalu menggeser gambar di mode zoom.
+  function preventNativeDrag(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault()
   }
 
   return (
@@ -99,7 +124,7 @@ export function ZoomablePreview({ children }: { children: ReactNode }) {
       {/* Canvas */}
       <div
         ref={containerRef}
-        className={`flex h-full w-full items-center justify-center ${scale > 1 ? (dragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'}`}
+        className={`flex h-full w-full select-none items-center justify-center ${scale > 1 ? (dragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-zoom-in'}`}
         style={{ touchAction: 'none' }}
         onWheel={handleWheel}
         onPointerDown={handlePointerDown}
@@ -107,8 +132,10 @@ export function ZoomablePreview({ children }: { children: ReactNode }) {
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
         onDoubleClick={handleDoubleClick}
+        onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onDragStart={preventNativeDrag}
       >
         <div
           className="flex h-full w-full items-center justify-center"
@@ -117,6 +144,7 @@ export function ZoomablePreview({ children }: { children: ReactNode }) {
             transformOrigin: 'center center',
             transition: dragging ? 'none' : 'transform 0.12s ease-out',
             willChange: 'transform',
+            WebkitUserDrag: 'none',
           }}
         >
           {children}
