@@ -92,6 +92,16 @@ export function QuotaTrackerPage() {
     return () => window.removeEventListener('message', onMessage)
   }, [])
 
+
+  // Auto-reload quota whenever a file is uploaded or deleted anywhere in the app.
+  useEffect(() => {
+    function onStorageChanged() {
+      load().catch(() => undefined)
+    }
+    window.addEventListener('9drive:storage-changed', onStorageChanged)
+    return () => window.removeEventListener('9drive:storage-changed', onStorageChanged)
+  }, [])
+
   async function connectDrive() {
     const data = await apiFetch<{ url: string }>('/connected-accounts/google/connect-url')
     const popup = window.open(data.url, 'google-drive-connect', 'width=540,height=720')
