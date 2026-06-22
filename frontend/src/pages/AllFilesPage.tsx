@@ -550,9 +550,10 @@ export function AllFilesPage() {
     setDeleteOpen(false)
     clearSelection()
     await loadFiles()
-    // Small delay to let backend finish syncing quota to DB before sidebar re-fetches.
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    window.dispatchEvent(new Event('9drive:storage-changed'))
+    // Fire storage-changed after a short delay to let backend finish syncing
+    // quota. Use window.setTimeout (not Promise wrapper) to avoid stale closure
+    // issues that can prevent subsequent deletes from triggering a re-fetch.
+    window.setTimeout(() => window.dispatchEvent(new Event('9drive:storage-changed')), 2000)
   }
 
   async function shareFile() {
