@@ -705,7 +705,7 @@ export function AllFilesPage() {
           {previewError ? <div className="p-6 text-center text-sm text-red-600">{previewError}</div> : null}
           {!previewLoading && !previewError && activePreviewKind === 'image' && previewUrl ? (
             <ZoomablePreview key={activeFile?.id}>
-              <img src={previewUrl} alt={activeFile?.name ?? 'File preview'} className="max-h-full max-w-full object-contain" onError={() => setPreviewError('Failed to load preview.')} />
+              <img src={previewUrl} alt={activeFile?.name ?? 'File preview'} className="max-h-full max-w-full object-contain" draggable={false} onError={() => setPreviewError('Failed to load preview.')} />
             </ZoomablePreview>
           ) : null}
           {!previewLoading && !previewError && activePreviewKind === 'video' && previewUrl ? <div className="shared-video-shell"><video ref={previewVideoRef} controls playsInline preload="metadata" onError={() => setPreviewError('Failed to load preview.')}><source src={previewUrl} type={activeFile?.mimeType} /></video></div> : null}
