@@ -150,9 +150,10 @@ async function handleCompleteSession(req: AuthRequest, res: Response) {
 
   await prisma.uploadSession.update({ where: { id: session.id }, data: { status: 'completed', completedAt: new Date() } })
 
-  // Sync quota in background so sidebar storage stats update automatically
-  // after direct-upload completes — don't await so response is not delayed.
-  syncGoogleQuota(account.id).catch(() => undefined)
+  // Await quota sync before responding so the sidebar storage stats are
+  // already accurate when the frontend fetches /storage/summary immediately
+  // after this response. The ~1-2s extra wait is worth the accuracy.
+  await syncGoogleQuota(account.id).catch(() => undefined)
 
   return res.status(201).json({ file: { ...file, sizeBytes: file.sizeBytes.toString() } })
 }
