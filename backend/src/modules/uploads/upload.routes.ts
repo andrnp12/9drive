@@ -6,7 +6,6 @@ import { PassThrough } from 'node:stream'
 import { env } from '../../config/env.js'
 import { prisma } from '../../config/prisma.js'
 import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.js'
-import { ensureGoogleAppFolder, getAuthedGoogleClient, syncGoogleQuota } from '../google/google.service.js'
 import { buildS3ObjectKey, getS3ConfigForAccount, syncS3Quota, uploadS3Object } from '../s3/s3.service.js'
 import { selectAccount } from './upload-routing.service.js'
 import { ensureGoogleAppFolder, getAuthedGoogleClient, syncGoogleQuota, applyQuotaDelta } from '../google/google.service.js'
@@ -183,8 +182,12 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
           completed.push({ ...file, sizeBytes: file.sizeBytes.toString() })
         }
         await prisma.uploadSession.update({ where: { id: session.id }, data: { status: 'completed', completedAt: new Date() } })
-        if (account.provider === 's3') syncS3Quota(account.id).catch(() => undefined)
-        else syncQuotaInBackground(account.id, session.id)
+        if (account.provider === 's3') {
+          syncS3Quota(account.id).catch(() => undefined)
+        } else {
+          await applyQuotaDelta(account.id, meta.sizeBytes).catch(() => undefined)
+          triggerBackgroundQuotaSync(account.id, session.id)
+        }
       } catch (error) {
         fileStream.resume()
         logUpload('file upload failed', { fileName, message: error instanceof Error ? error.message : 'Upload failed' })
