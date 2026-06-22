@@ -144,7 +144,6 @@ export function ZoomablePreview({ children }: { children: ReactNode }) {
             transformOrigin: 'center center',
             transition: dragging ? 'none' : 'transform 0.12s ease-out',
             willChange: 'transform',
-            WebkitUserDrag: 'none',
           }}
         >
           {children}
