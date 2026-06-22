@@ -176,10 +176,6 @@ export function DriveLayout() {
   const [updatesError, setUpdatesError] = useState('')
   const [updatesLoaded, setUpdatesLoaded] = useState(false)
 
-    // Use a ref so the event listener always calls the latest version of
-  // loadSidebarStats without needing to re-register on every render.
-  const loadSidebarStatsRef = useRef<() => Promise<void>>()
- 
   async function loadSidebarStats() {
     await Promise.all([
       apiFetch<StorageSummary>('/storage/summary').then(setStorage),
@@ -187,7 +183,9 @@ export function DriveLayout() {
     ])
   }
  
-  // Keep ref in sync with latest function instance.
+  // Selalu pegang versi terbaru loadSidebarStats, supaya listener event yang
+  // didaftarkan sekali (mount-only) di bawah tidak pernah memanggil closure basi.
+  const loadSidebarStatsRef = useRef(loadSidebarStats)
   loadSidebarStatsRef.current = loadSidebarStats
 
   useEffect(() => {
