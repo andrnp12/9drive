@@ -8,7 +8,6 @@ import { EmptyAreaContextMenu } from '@/components/drive/EmptyAreaContextMenu'
 import { FileContextMenu } from '@/components/drive/FileContextMenu'
 import { FileDetailsDrawer } from '@/components/drive/FileDetailsDrawer'
 import { FileGrid } from '@/components/drive/FileGrid'
-import { ZoomablePreview } from '@/components/drive/ZoomablePreview'
 import { FileTable } from '@/components/drive/FileTable'
 import { FolderContextMenu } from '@/components/drive/FolderContextMenu'
 import { FolderGrid } from '@/components/drive/FolderGrid'
@@ -16,7 +15,7 @@ import { defaultFolderColor, defaultFolderIconUrl, FolderVisual, folderColorOpti
 import { PageHeader } from '@/components/drive/PageHeader'
 import { Input } from '@/components/ui/input'
 import { API_URL, apiFetch, formatBytes, formatDate } from '@/lib/api'
-import { getAccessToken } from '@/lib/auth'
+import { getAccessToken, getRefreshToken, setAccessToken } from '@/lib/auth'
 import { createPlyr, ensurePlyr } from '@/lib/plyr'
 import { getPreviewKind, officeViewerUrl } from '@/lib/preview'
 import type { FileItem, FolderItem } from '@/data/drive-data'
@@ -310,39 +309,7 @@ export function AllFilesPage() {
         )
         uploadResult = directResult ?? (await proxyUpload())
       } else {
-        // Multiple files: upload each directly to Google Drive in parallel.
-        // Each file gets its own progress tracker; overall percent = average.
-        const filePercents = new Array<number>(uploadingFiles.length).fill(0)
-
-        const results = await Promise.allSettled(
-          uploadingFiles.map((file, index) =>
-            uploadFileDirectToGoogle(
-              file,
-              targetFolderId || undefined,
-              (percent) => {
-                filePercents[index] = percent
-                const overall = Math.round(filePercents.reduce((sum, p) => sum + p, 0) / filePercents.length)
-                setUploadProgress((current) => ({
-                  ...current,
-                  percent: overall,
-                  files: current.files.map((f, i) => (i === index ? { ...f, percent } : f)),
-                }))
-              },
-            ),
-          ),
-        )
-
-        const failedFiles = uploadingFiles.filter((_, i) => {
-          const result = results[i]
-          return result?.status === 'rejected' || result?.value === null
-        })
-
-        uploadResult = {
-          files: results
-            .map((r) => (r.status === 'fulfilled' && r.value !== null ? (r.value.file ?? r.value.files?.[0]) : undefined))
-            .filter(Boolean),
-          failed: failedFiles.map((f) => ({ fileName: f.name })),
-        }
+        uploadResult = await proxyUpload()
       }
 
       const uploadedCount = uploadResult.files?.length ?? (uploadResult.file ? 1 : selectedFiles.length)
@@ -397,25 +364,60 @@ export function AllFilesPage() {
     if (event.type === 'drop') selectUploadFiles(event.dataTransfer.files)
   }
 
+  // Refresh the JWT access token if it will expire within the next 2 minutes.
+  // uploadWithProgress uses XHR directly (not apiFetch) so it has no built-in
+  // refresh — we call this before every proxied upload to be safe.
+  async function ensureFreshToken(): Promise<string | null> {
+    const token = getAccessToken()
+    if (!token) return null
+    try {
+      // Decode the JWT payload to check expiry (no signature verification needed here).
+      const payload = JSON.parse(atob(token.split('.')[1]!)) as { exp?: number }
+      const expiresAt = (payload.exp ?? 0) * 1000
+      const twoMinutes = 2 * 60 * 1000
+      if (Date.now() + twoMinutes < expiresAt) return token
+    } catch {
+      return token // if decode fails just use the token as-is
+    }
+    // Token expires soon — refresh it.
+    const refreshToken = getRefreshToken()
+    if (!refreshToken) return token
+    try {
+      const res = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      })
+      if (!res.ok) return token
+      const data = await res.json() as { accessToken: string }
+      setAccessToken(data.accessToken)
+      return data.accessToken
+    } catch {
+      return token
+    }
+  }
+
   function uploadWithProgress(form: FormData, onProgress: (percent: number) => void) {
     return new Promise<UploadResult>((resolve, reject) => {
-      const request = new XMLHttpRequest()
-      request.open('POST', `${API_URL}/uploads`)
-      const token = getAccessToken()
-      if (token) request.setRequestHeader('Authorization', `Bearer ${token}`)
-      request.upload.onprogress = (event) => {
-        if (!event.lengthComputable) return
-        onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)))
-      }
-      request.onload = () => {
-        if (request.status >= 200 && request.status < 300) resolve(JSON.parse(request.responseText || '{}') as UploadResult)
-        else {
-          const error = JSON.parse(request.responseText || '{}') as { message?: string }
-          reject(new Error(error.message ?? 'Upload failed'))
+      // Ensure we have a fresh token before sending — XHR does not auto-refresh.
+      ensureFreshToken().then((token) => {
+        const request = new XMLHttpRequest()
+        request.open('POST', `${API_URL}/uploads`)
+        if (token) request.setRequestHeader('Authorization', `Bearer ${token}`)
+        request.upload.onprogress = (event) => {
+          if (!event.lengthComputable) return
+          onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)))
         }
-      }
-      request.onerror = () => reject(new Error('Upload failed'))
-      request.send(form)
+        request.onload = () => {
+          if (request.status >= 200 && request.status < 300) resolve(JSON.parse(request.responseText || '{}') as UploadResult)
+          else {
+            const error = JSON.parse(request.responseText || '{}') as { message?: string }
+            reject(new Error(error.message ?? 'Upload failed'))
+          }
+        }
+        request.onerror = () => reject(new Error('Upload failed'))
+        request.send(form)
+      }).catch(() => reject(new Error('Failed to refresh auth token')))
     })
   }
 
@@ -703,11 +705,7 @@ export function AllFilesPage() {
         <div className="flex h-[72dvh] w-full items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 sm:h-[80vh]">
           {previewLoading ? <div className="p-6 text-center text-sm font-semibold text-slate-500">Loading preview...</div> : null}
           {previewError ? <div className="p-6 text-center text-sm text-red-600">{previewError}</div> : null}
-          {!previewLoading && !previewError && activePreviewKind === 'image' && previewUrl ? (
-            <ZoomablePreview key={activeFile?.id}>
-              <img src={previewUrl} alt={activeFile?.name ?? 'File preview'} className="max-h-full max-w-full object-contain" draggable={false} onError={() => setPreviewError('Failed to load preview.')} />
-            </ZoomablePreview>
-          ) : null}
+          {!previewLoading && !previewError && activePreviewKind === 'image' && previewUrl ? <img src={previewUrl} alt={activeFile?.name ?? 'File preview'} className="max-h-full max-w-full object-contain" onError={() => setPreviewError('Failed to load preview.')} /> : null}
           {!previewLoading && !previewError && activePreviewKind === 'video' && previewUrl ? <div className="shared-video-shell"><video ref={previewVideoRef} controls playsInline preload="metadata" onError={() => setPreviewError('Failed to load preview.')}><source src={previewUrl} type={activeFile?.mimeType} /></video></div> : null}
           {!previewLoading && !previewError && activePreviewKind === 'document' && previewUrl ? <iframe src={previewUrl} title={activeFile?.name ?? 'File preview'} className="h-full w-full border-0 bg-white" /> : null}
           {!previewLoading && !previewError && activePreviewKind === 'office' && previewUrl ? <iframe src={officeViewerUrl(previewUrl)} title={activeFile?.name ?? 'File preview'} className="h-full w-full border-0 bg-white" /> : null}
