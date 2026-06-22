@@ -8,8 +8,8 @@ import { EmptyAreaContextMenu } from '@/components/drive/EmptyAreaContextMenu'
 import { FileContextMenu } from '@/components/drive/FileContextMenu'
 import { FileDetailsDrawer } from '@/components/drive/FileDetailsDrawer'
 import { FileGrid } from '@/components/drive/FileGrid'
-import { FileTable } from '@/components/drive/FileTable'
 import { ZoomablePreview } from '@/components/drive/ZoomablePreview'
+import { FileTable } from '@/components/drive/FileTable'
 import { FolderContextMenu } from '@/components/drive/FolderContextMenu'
 import { FolderGrid } from '@/components/drive/FolderGrid'
 import { defaultFolderColor, defaultFolderIconUrl, FolderVisual, folderColorOptions, folderIconOptions, normalizeFolderColor } from '@/components/drive/FolderVisual'
@@ -550,6 +550,8 @@ export function AllFilesPage() {
     setDeleteOpen(false)
     clearSelection()
     await loadFiles()
+    // Small delay to let backend finish syncing quota to DB before sidebar re-fetches.
+    await new Promise((resolve) => setTimeout(resolve, 1500))
     window.dispatchEvent(new Event('9drive:storage-changed'))
   }
 
