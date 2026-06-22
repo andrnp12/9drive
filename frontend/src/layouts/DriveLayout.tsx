@@ -188,7 +188,7 @@ export function DriveLayout() {
   }
  
   // Keep ref in sync with latest function instance.
-  loadSidebarStatsRef.current = loadSidebarStat
+  loadSidebarStatsRef.current = loadSidebarStats
 
   useEffect(() => {
     apiFetch<{ user: AuthUser }>('/auth/me')
