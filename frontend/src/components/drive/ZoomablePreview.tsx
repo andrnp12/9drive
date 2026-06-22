@@ -111,6 +111,7 @@ export function ZoomablePreview({ children }: { children: ReactNode }) {
         onTouchEnd={handleTouchEnd}
       >
         <div
+          className="flex h-full w-full items-center justify-center"
           style={{
             transform: `scale(${scale}) translate(${pos.x / scale}px, ${pos.y / scale}px)`,
             transformOrigin: 'center center',
