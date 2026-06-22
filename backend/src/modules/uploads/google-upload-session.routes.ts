@@ -111,15 +111,26 @@ async function handleCompleteSession(req: AuthRequest, res: Response) {
   const appFolderId = await ensureGoogleAppFolder(account)
 
   const escapedName = session.fileName.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
-  const listRes = await drive.files.list({
-    q: `name = '${escapedName}' and '${appFolderId}' in parents and trashed = false`,
-    fields: 'files(id,name,mimeType,size)',
-    orderBy: 'createdTime desc',
-    pageSize: 1,
-    spaces: 'drive',
-  })
 
-  const driveFile = listRes.data.files?.[0]
+  // Google Drive may take a few seconds to index a large file after the PUT
+  // completes. Retry up to 5 times with increasing delays before giving up.
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+  const retryDelaysMs = [2000, 4000, 6000, 8000, 10000]
+  let driveFile: { id?: string | null; name?: string | null; mimeType?: string | null } | undefined
+
+  for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
+    if (attempt > 0) await sleep(retryDelaysMs[attempt - 1]!)
+    const listRes = await drive.files.list({
+      q: `name = '${escapedName}' and '${appFolderId}' in parents and trashed = false`,
+      fields: 'files(id,name,mimeType,size)',
+      orderBy: 'createdTime desc',
+      pageSize: 1,
+      spaces: 'drive',
+    })
+    driveFile = listRes.data.files?.[0]
+    if (driveFile?.id) break
+  }
+
   if (!driveFile?.id) {
     return res.status(404).json({ code: 'DRIVE_FILE_NOT_FOUND', message: 'File not found in Google Drive after upload. It may still be processing — try syncing in a moment.' })
   }
