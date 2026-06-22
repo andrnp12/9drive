@@ -4,7 +4,7 @@ import type { MouseEvent } from 'react'
 import { Card } from '@/components/ui/card'
 import { FileIcon } from '@/components/drive/FileIcon'
 import type { FileItem } from '@/data/drive-data'
-import { API_URL, apiFetch } from '@/lib/api'
+import { apiFetch } from '@/lib/api'
 
 function FileThumbnail({ file }: { file: FileItem }) {
   const [url, setUrl] = useState<string | null>(null)
