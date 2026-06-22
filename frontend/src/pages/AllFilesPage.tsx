@@ -309,7 +309,39 @@ export function AllFilesPage() {
         )
         uploadResult = directResult ?? (await proxyUpload())
       } else {
-        uploadResult = await proxyUpload()
+        // Multiple files: upload each directly to Google Drive in parallel.
+        // Each file gets its own progress tracker; overall percent = average.
+        const filePercents = new Array<number>(uploadingFiles.length).fill(0)
+
+        const results = await Promise.allSettled(
+          uploadingFiles.map((file, index) =>
+            uploadFileDirectToGoogle(
+              file,
+              targetFolderId || undefined,
+              (percent) => {
+                filePercents[index] = percent
+                const overall = Math.round(filePercents.reduce((sum, p) => sum + p, 0) / filePercents.length)
+                setUploadProgress((current) => ({
+                  ...current,
+                  percent: overall,
+                  files: current.files.map((f, i) => (i === index ? { ...f, percent } : f)),
+                }))
+              },
+            ),
+          ),
+        )
+
+        const failedFiles = uploadingFiles.filter((_, i) => {
+          const result = results[i]
+          return result?.status === 'rejected' || result?.value === null
+        })
+
+        uploadResult = {
+          files: results
+            .map((r) => (r.status === 'fulfilled' && r.value !== null ? (r.value.file ?? r.value.files?.[0]) : undefined))
+            .filter(Boolean),
+          failed: failedFiles.map((f) => ({ fileName: f.name })),
+        }
       }
 
       const uploadedCount = uploadResult.files?.length ?? (uploadResult.file ? 1 : selectedFiles.length)
