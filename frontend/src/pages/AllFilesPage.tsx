@@ -9,7 +9,6 @@ import { FileContextMenu } from '@/components/drive/FileContextMenu'
 import { FileDetailsDrawer } from '@/components/drive/FileDetailsDrawer'
 import { FileGrid } from '@/components/drive/FileGrid'
 import { FileTable } from '@/components/drive/FileTable'
-import { ZoomablePreview } from '@/components/drive/ZoomablePreview'
 import { FolderContextMenu } from '@/components/drive/FolderContextMenu'
 import { FolderGrid } from '@/components/drive/FolderGrid'
 import { defaultFolderColor, defaultFolderIconUrl, FolderVisual, folderColorOptions, folderIconOptions, normalizeFolderColor } from '@/components/drive/FolderVisual'
@@ -29,6 +28,7 @@ type UploadProgressState = { open: boolean; fileName: string; percent: number; s
 type UploadResult = { file?: unknown; files?: unknown[]; failed?: Array<{ fileName?: string }> }
 type SyncGoogleResult = { accounts: number; created: number; updated: number; deleted: number }
 type FileViewMode = 'list' | 'grid'
+type Pagination = { page: number; limit: number; total: number; totalPages: number; hasNext: boolean; hasPrev: boolean }
 
 // --- Added for direct-to-Google-Drive upload (bypasses Railway request timeout for large files) ---
 type GoogleBestAccountResult = { accountId: string }
@@ -127,6 +127,8 @@ export function AllFilesPage() {
   const [syncingDrive, setSyncingDrive] = useState(false)
   const [fileViewMode, setFileViewMode] = useState<FileViewMode>(getStoredFileViewMode)
   const [uploadProgress, setUploadProgress] = useState<UploadProgressState>({ open: false, fileName: '', percent: 0, status: 'uploading', files: [] })
+  const [pagination, setPagination] = useState<Pagination | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('viewer')
@@ -136,14 +138,15 @@ export function AllFilesPage() {
   const [inviting, setInviting] = useState(false)
   const previewVideoRef = useRef<HTMLVideoElement | null>(null)
 
-  async function loadFiles() {
+  async function loadFiles(page = currentPage) {
     const params = new URLSearchParams()
     if (activeFolderId) params.set('folderId', activeFolderId)
     if (searchQuery) params.set('q', searchQuery)
-    const query = params.toString()
-    const path = query ? `/files?${query}` : '/files'
-    const data = await apiFetch<{ files: BackendFile[] }>(path)
+    params.set('page', String(page))
+    params.set('limit', '100')
+    const data = await apiFetch<{ files: BackendFile[]; pagination: Pagination }>(`/files?${params.toString()}`)
     setFiles(data.files.map(mapFile))
+    setPagination(data.pagination)
   }
 
   async function loadFolders() {
@@ -161,6 +164,7 @@ export function AllFilesPage() {
   }
 
   useEffect(() => {
+    setCurrentPage(1)
     loadAll().catch((error) => setMessage(error instanceof Error ? error.message : 'Failed to load files'))
     setSelectedFileIds(new Set())
   }, [activeFolderId, searchQuery])
@@ -449,6 +453,12 @@ export function AllFilesPage() {
     setSelectedFileIds(new Set())
   }
 
+  async function goToPage(page: number) {
+    setCurrentPage(page)
+    await loadFiles(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   function changeFileViewMode(mode: FileViewMode) {
     setFileViewMode(mode)
     localStorage.setItem(fileViewStorageKey, mode)
@@ -662,6 +672,29 @@ export function AllFilesPage() {
       </div>
       {cutFolder ? <p className="mt-5 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-700"><ClipboardPaste className="mr-2 inline h-4 w-4" />Cut folder: {cutFolder.name}. Press Ctrl+V or right-click empty area to paste here.</p> : null}
       {files.length === 0 ? <p className="mt-5 rounded-xl bg-slate-50 p-5 text-sm text-slate-500">{searchQuery ? `No files found for "${searchQuery}".` : activeFolder ? 'No files in this folder yet.' : 'No uploaded files yet. Connect Google Drive in Settings, then upload a file.'}</p> : fileViewMode === 'grid' ? <FileGrid files={files} selectedFileIds={selectedFileIds} onToggleFile={toggleFileSelection} onFileContextMenu={openContext} /> : <FileTable files={files} selectedFileIds={selectedFileIds} allSelected={allVisibleSelected} onToggleFile={toggleFileSelection} onToggleAll={toggleAllVisibleFiles} onFileContextMenu={openContext} />}
+      {pagination && pagination.totalPages > 1 ? (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5">
+          <p className="text-sm text-slate-500">
+            Showing <b>{(pagination.page - 1) * pagination.limit + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)}</b> of <b>{pagination.total}</b> files
+          </p>
+          <div className="flex items-center gap-2">
+            <button type="button" disabled={!pagination.hasPrev} onClick={() => goToPage(pagination.page - 1).catch(() => undefined)} className="inline-flex h-9 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
+              ← Prev
+            </button>
+            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).filter((p) => p === 1 || p === pagination.totalPages || Math.abs(p - pagination.page) <= 1).reduce<Array<number | '...'>>((acc, p, idx, arr) => {
+              if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('...')
+              acc.push(p)
+              return acc
+            }, []).map((p, idx) =>
+              p === '...' ? <span key={`ellipsis-${idx}`} className="px-1 text-slate-400">…</span> :
+              <button key={p} type="button" onClick={() => goToPage(p as number).catch(() => undefined)} className={p === pagination.page ? 'inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-sm font-bold text-white' : 'inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition hover:bg-slate-50'}>{p}</button>
+            )}
+            <button type="button" disabled={!pagination.hasNext} onClick={() => goToPage(pagination.page + 1).catch(() => undefined)} className="inline-flex h-9 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
+              Next →
+            </button>
+          </div>
+        </div>
+      ) : null}
       </div>
       <EmptyAreaContextMenu x={emptyContextMenu.x} y={emptyContextMenu.y} open={emptyContextMenu.open} canPasteFolder={Boolean(cutFolder)} onClose={() => setEmptyContextMenu({ x: 0, y: 0, open: false })} onUpload={() => { setUploadOpen(true); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onCreateFolder={() => { setFolderOpen(true); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} onPasteFolder={() => { pasteFolder().catch((error) => setMessage(error instanceof Error ? error.message : 'Failed to paste folder')); setEmptyContextMenu({ x: 0, y: 0, open: false }) }} />
       <FileContextMenu x={contextMenu.x} y={contextMenu.y} file={contextMenu.file} onClose={() => setContextMenu({ x: 0, y: 0, file: null })} onView={viewFile} onDownload={downloadFile} onRename={() => { setRenameValue(activeFile?.name ?? ''); setRenameOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} onMove={() => { setMoveOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} onDetails={() => { setDetailOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} onShare={shareFile} onInvite={inviteToFile} onDelete={() => { setDeleteOpen(true); setContextMenu({ x: 0, y: 0, file: null }) }} />
