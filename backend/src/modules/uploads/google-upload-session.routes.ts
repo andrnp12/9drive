@@ -4,7 +4,7 @@ import { google } from 'googleapis'
 import { z } from 'zod'
 import { prisma } from '../../config/prisma.js'
 import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.js'
-import { createGoogleResumableSession, ensureGoogleAppFolder, getAuthedGoogleClient } from '../google/google.service.js'
+import { createGoogleResumableSession, ensureGoogleAppFolder, getAuthedGoogleClient, syncGoogleQuota } from '../google/google.service.js'
 import { selectAccount } from './upload-routing.service.js'
 
 export const googleUploadSessionRouter = Router()
@@ -149,6 +149,10 @@ async function handleCompleteSession(req: AuthRequest, res: Response) {
   })
 
   await prisma.uploadSession.update({ where: { id: session.id }, data: { status: 'completed', completedAt: new Date() } })
+
+  // Sync quota in background so sidebar storage stats update automatically
+  // after direct-upload completes — don't await so response is not delayed.
+  syncGoogleQuota(account.id).catch(() => undefined)
 
   return res.status(201).json({ file: { ...file, sizeBytes: file.sizeBytes.toString() } })
 }
