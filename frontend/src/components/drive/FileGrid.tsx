@@ -21,8 +21,9 @@ function FileThumbnail({ file }: { file: FileItem }) {
       (entries) => {
         if (!entries[0]?.isIntersecting || fetchedRef.current) return
         fetchedRef.current = true
-        apiFetch<{ path: string }>(`/files/${file.id}/preview-token`, { method: 'POST' })
-          .then(({ path }) => setUrl(`${API_URL}${path}`))
+        // Hanya ambil URL thumbnail kecil dari Google (~400px), bukan file penuh
+        apiFetch<{ url: string }>(`/files/${file.id}/thumbnail-url`)
+          .then(({ url }) => setUrl(url))
           .catch(() => setImgError(true))
       },
       { rootMargin: '200px' },
