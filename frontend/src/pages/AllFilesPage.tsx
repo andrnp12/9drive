@@ -544,37 +544,44 @@ export function AllFilesPage() {
 
   async function deleteFile() {
   // 1. TUTUP POPUP SEGERA
-  // Jangan menunggu API, tutup modal dulu agar user tahu proses sudah berjalan
   setDeleteOpen(false);
-  setFolderDeleteOpen(false); // Tutup juga jika ini delete folder
+  setFolderDeleteOpen(false);
   
-  // 2. Bersihkan seleksi
+  // Simpan ID yang akan dihapus untuk update UI lokal
+  const idsToDelete = selectedFileIds.size > 0 ? [...selectedFileIds] : (activeFile?.id ? [activeFile.id] : []);
+  
+  if (idsToDelete.length === 0) return;
+
+  // 2. OPTIMISTIC UPDATE: Hapus file dari state secara instan
+  // User melihat file hilang seketika, meskipun server masih memproses
+  setFiles((currentFiles) => currentFiles.filter((file) => !idsToDelete.includes(file.id!)));
   clearSelection();
   
-  // 3. Jalankan proses hapus di background
   try {
-    setLoading(true); // Tampilkan loading jika ada
-    
-    if (selectedFileIds.size > 0) {
-      await apiFetch('/files/batch', { 
-        method: 'DELETE', 
-        body: JSON.stringify({ fileIds: [...selectedFileIds] }) 
-      });
-    } else if (activeFile?.id) {
-      await apiFetch(`/files/${activeFile.id}`, { method: 'DELETE' });
-    } else {
-      return;
-    }
+    setLoading(true);
+    setMessage('Deleting files...');
 
-    // 4. Update daftar file
-    await loadFiles();
-    
-    // 5. Update kuota (Storage Summary)
-    // Gunakan event agar sidebar/header terupdate
-    window.dispatchEvent(new Event('9drive:storage-changed'));
-    
-    setMessage('Files deleted successfully.');
+    // 3. Jalankan proses hapus di background
+    await (async () => {
+      if (idsToDelete.length > 1) {
+        await apiFetch('/files/batch', { 
+          method: 'DELETE', 
+          body: JSON.stringify({ fileIds: idsToDelete }) 
+        });
+      } else {
+        await apiFetch(`/files/${idsToDelete[0]}`, { method: 'DELETE' });
+      }
+
+      // 4. Update daftar file dari server untuk memastikan sinkronisasi
+      await loadFiles();
+      
+      // 5. Update kuota di sidebar/header
+      window.dispatchEvent(new Event('9drive:storage-changed'));
+      setMessage('Files deleted successfully.');
+    })();
   } catch (error) {
+    // Jika gagal, kembalikan file yang terhapus ke layar (Rollback)
+    await loadFiles(); 
     console.error('Delete error:', error);
     setMessage(error instanceof Error ? error.message : 'Failed to delete files');
   } finally {
