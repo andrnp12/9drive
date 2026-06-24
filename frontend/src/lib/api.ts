@@ -4,11 +4,10 @@ export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
 
 type ApiOptions = RequestInit & { skipAuth?: boolean; retry?: boolean }
 
-// Variable untuk mengunci proses refresh agar tidak terjadi double request
+// LOCK: Menjamin hanya ada SATU proses refresh yang berjalan meski ada 100 request
 let refreshPromise: Promise<boolean> | null = null
 
 async function refreshAccessToken() {
-  // Jika sedang ada proses refresh yang berjalan, gunakan promise yang sama
   if (refreshPromise) return refreshPromise
 
   refreshPromise = (async () => {
@@ -24,20 +23,15 @@ async function refreshAccessToken() {
 
       if (!response.ok) return false
       
-      // Tangkap accessToken DAN refreshToken jika disediakan oleh backend
       const data = await response.json() as { accessToken: string; refreshToken?: string }
-      
       setAccessToken(data.accessToken)
-      if (data.refreshToken) {
-        setRefreshToken(data.refreshToken) // Simpan refresh token baru!
-      }
+      if (data.refreshToken) setRefreshToken(data.refreshToken)
       
       return true
     } catch (error) {
-      console.error("Refresh Token Error:", error)
       return false
     } finally {
-      refreshPromise = null // Reset lock setelah selesai
+      refreshPromise = null // Buka kunci setelah selesai
     }
   })()
 
@@ -58,31 +52,44 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
 
   const response = await fetch(`${API_URL}${path}`, { ...options, headers })
 
-  // JIKA 401: Coba refresh token
+  // 1. TANGANI 401 (UNAUTHORIZED)
   if (response.status === 401 && options.retry !== false && !options.skipAuth) {
+    // Tunggu proses refresh (baik yang baru dimulai atau yang sedang berjalan)
     const success = await refreshAccessToken()
+    
     if (success) {
-      // Ulangi request awal dengan token baru
-      return apiFetch<T>(path, { ...options, retry: false })
+      // Ambil token terbaru yang baru saja disimpan oleh refreshAccessToken
+      const newToken = getAccessToken()
+      const retryHeaders = new Headers(options.headers)
+      if (newToken) retryHeaders.set('Authorization', `Bearer ${newToken}`)
+      
+      // Jalankan ulang request dengan token baru
+      return apiFetch<T>(path, { ...options, headers: retryHeaders, retry: false })
     }
   }
 
+  // 2. TANGANI ERROR LAINNYA
   if (!response.ok) {
-    // Jika tetap 401 setelah refresh atau refresh gagal, hapus session
-    if (response.status === 401) {
+    // HANYA LOGOUT jika:
+    // - Status 401
+    // - SUDAH mencoba retry (retry === false)
+    // - Dan bukan request yang skipAuth
+    if (response.status === 401 && options.retry === false && !options.skipAuth) {
+      console.warn("Sesi benar-benar habis. Logout...");
       clearAuthSession()
-      // Opsional: Redirect ke login jika di browser
-      if (typeof window !== 'undefined') window.location.href = '/login'
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login'
+      }
     }
     
+    // Untuk error 500, 502, 504 (TIDB Cloud Cold Start), jangan logout!
+    // Cukup lempar error agar UI menampilkan pesan "Gagal memuat data"
     const error = await response.json().catch(() => ({ message: response.statusText }))
     throw new Error(error.message ?? 'Request failed')
   }
 
   return response.json() as Promise<T>
 }
-
-// ... (fungsi formatBytes dan formatDate tetap sama)
 
 export function formatBytes(input: string | number | bigint | null | undefined) {
   if (input === null || input === undefined) return '--'
