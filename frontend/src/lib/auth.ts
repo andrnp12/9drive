@@ -36,6 +36,11 @@ export function setAccessToken(accessToken: string) {
   localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
 }
 
+// TAMBAHKAN FUNGSI INI
+export function setRefreshToken(refreshToken: string) {
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+}
+
 export function clearAuthSession() {
   localStorage.removeItem(ACCESS_TOKEN_KEY)
   localStorage.removeItem(REFRESH_TOKEN_KEY)
