@@ -1,0 +1,29 @@
+services:
+  mysql-db:
+    image: mysql:8.0
+    container_name: 9drive-mysql
+    restart: always
+    # Kita tetap tulis password di sini agar MySQL bisa buat DB saat pertama kali jalan
+    environment:
+      MYSQL_ROOT_PASSWORD: 8088 
+      MYSQL_DATABASE: 9drive
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  backend-api:
+    build: .
+    container_name: 9drive-backend
+    restart: always
+    ports:
+      - "4000:4000"
+    # --- INI KUNCINYA ---
+    env_file:
+      - .env
+    # --------------------
+    depends_on:
+      - mysql-db
+
+volumes:
+  mysql_data:
