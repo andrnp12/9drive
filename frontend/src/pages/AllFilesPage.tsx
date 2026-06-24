@@ -543,18 +543,44 @@ export function AllFilesPage() {
   }
 
   async function deleteFile() {
-    const selectedIds = [...selectedFileIds]
-    if (selectedIds.length > 0) await apiFetch('/files/batch', { method: 'DELETE', body: JSON.stringify({ fileIds: selectedIds }) })
-    else if (activeFile?.id) await apiFetch(`/files/${activeFile.id}`, { method: 'DELETE' })
-    else return
-    setDeleteOpen(false)
-    clearSelection()
-    await loadFiles()
-    // Fire storage-changed after a short delay to let backend finish syncing
-    // quota. Use window.setTimeout (not Promise wrapper) to avoid stale closure
-    // issues that can prevent subsequent deletes from triggering a re-fetch.
-    window.setTimeout(() => window.dispatchEvent(new Event('9drive:storage-changed')), 2000)
+  // 1. TUTUP POPUP SEGERA
+  // Jangan menunggu API, tutup modal dulu agar user tahu proses sudah berjalan
+  setDeleteOpen(false);
+  setFolderDeleteOpen(false); // Tutup juga jika ini delete folder
+  
+  // 2. Bersihkan seleksi
+  clearSelection();
+  
+  // 3. Jalankan proses hapus di background
+  try {
+    setLoading(true); // Tampilkan loading jika ada
+    
+    if (selectedFileIds.size > 0) {
+      await apiFetch('/files/batch', { 
+        method: 'DELETE', 
+        body: JSON.stringify({ fileIds: [...selectedFileIds] }) 
+      });
+    } else if (activeFile?.id) {
+      await apiFetch(`/files/${activeFile.id}`, { method: 'DELETE' });
+    } else {
+      return;
+    }
+
+    // 4. Update daftar file
+    await loadFiles();
+    
+    // 5. Update kuota (Storage Summary)
+    // Gunakan event agar sidebar/header terupdate
+    window.dispatchEvent(new Event('9drive:storage-changed'));
+    
+    setMessage('Files deleted successfully.');
+  } catch (error) {
+    console.error('Delete error:', error);
+    setMessage(error instanceof Error ? error.message : 'Failed to delete files');
+  } finally {
+    setLoading(false);
   }
+}
 
   async function shareFile() {
     if (!activeFile?.id) return

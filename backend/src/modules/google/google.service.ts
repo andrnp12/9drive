@@ -68,27 +68,6 @@ export async function syncGoogleQuota(accountId: string) {
   })
 }
 
-// Immediately adjusts local quota by deltaBytes (+upload, -delete) without
-// waiting for a round-trip to Google. Use syncGoogleQuota() as background
-// reconciliation, not as the primary source of truth after each operation.
-export async function applyQuotaDelta(accountId: string, deltaBytes: bigint) {
-  const existing = await prisma.storageAccount.findUnique({ where: { connectedAccountId: accountId } })
-  if (!existing) {
-    // No local record yet — fall back to a full sync so we at least have data
-    return syncGoogleQuota(accountId).catch(() => undefined)
-  }
-  await prisma.storageAccount.update({
-    where: { connectedAccountId: accountId },
-    data: {
-      usedBytes: { increment: deltaBytes },
-      // availableBytes may be null when total is unknown (unlimited account)
-      availableBytes: existing.availableBytes !== null
-        ? { decrement: deltaBytes }
-        : undefined,
-    },
-  })
-}
-
 function escapeDriveQueryValue(value: string) {
   return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 }
