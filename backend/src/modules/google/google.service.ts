@@ -40,6 +40,30 @@ export async function getAuthedGoogleClient(account: ConnectedAccount) {
   return client
 }
 
+// Tambahkan/Kembalikan fungsi ini di src/modules/google/google.service.ts
+
+export async function applyQuotaDelta(accountId: string, deltaBytes: bigint) {
+  const existing = await prisma.storageAccount.findUnique({ 
+    where: { connectedAccountId: accountId } 
+  })
+  
+  if (!existing) {
+    // Jika data lokal belum ada, lakukan sync penuh sebagai fallback
+    return syncGoogleQuota(accountId).catch(() => undefined)
+  }
+
+  await prisma.storageAccount.update({
+    where: { connectedAccountId: accountId },
+    data: {
+      usedBytes: { increment: deltaBytes },
+      // availableBytes hanya dikurangi jika nilai totalnya diketahui (tidak null)
+      availableBytes: existing.availableBytes !== null
+        ? { decrement: deltaBytes }
+        : undefined,
+    },
+  })
+}
+
 export async function syncGoogleQuota(accountId: string) {
   const account = await prisma.connectedAccount.findUniqueOrThrow({ where: { id: accountId } })
   const auth = await getAuthedGoogleClient(account)

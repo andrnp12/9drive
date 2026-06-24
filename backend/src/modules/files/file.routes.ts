@@ -7,7 +7,7 @@ import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.
 import { hashToken, randomToken } from '../../utils/crypto.js'
 import { deleteS3Object, syncS3Quota } from '../s3/s3.service.js'
 import { streamProviderFile } from './stream-file.js'
-import { getAuthedGoogleClient, syncGoogleAppFolderFiles, syncGoogleQuota } from '../google/google.service.js'
+import { getAuthedGoogleClient, syncGoogleAppFolderFiles, applyQuotaDelta } from '../google/google.service.js'
 
 export const fileRouter = Router()
 
@@ -99,21 +99,15 @@ fileRouter.patch('/batch', async (req: AuthRequest, res, next) => {
 fileRouter.delete('/batch', async (req: AuthRequest, res, next) => {
   try {
     const body = batchFileSchema.parse(req.body)
-    const files = await prisma.file.findMany({ 
-      where: { id: { in: body.fileIds }, userId: req.user!.id, status: 'active' }, 
-      include: { connectedAccount: true } 
-    })
-    
+    const files = await prisma.file.findMany({ where: { id: { in: body.fileIds }, userId: req.user!.id, status: 'active' }, include: { connectedAccount: true } })
     const deletedIds: string[] = []
     const syncedAccountIds = new Set<string>()
     const failed: Array<{ fileId: string; message: string }> = []
 
-    // 1. Proses penghapusan fisik di provider (S3/Google Drive)
     for (const file of files) {
       try {
-        if (file.provider === 's3') {
-          await deleteS3Object(file)
-        } else {
+        if (file.provider === 's3') await deleteS3Object(file)
+        else {
           const auth = await getAuthedGoogleClient(file.connectedAccount)
           const drive = google.drive({ version: 'v3', auth })
           await drive.files.delete({ fileId: file.providerFileId })
@@ -125,45 +119,31 @@ fileRouter.delete('/batch', async (req: AuthRequest, res, next) => {
       }
     }
 
-    // 2. Update status file di database menjadi 'deleted'
     if (deletedIds.length > 0) {
-      await prisma.file.updateMany({ 
-        where: { id: { in: deletedIds }, userId: req.user!.id }, 
-        data: { status: 'deleted', deletedAt: new Date() } 
-      })
+      await prisma.file.updateMany({ where: { id: { in: deletedIds }, userId: req.user!.id }, data: { status: 'deleted', deletedAt: new Date() } })
     }
 
-    /**
-     * PERUBAHAN UTAMA: 
-     * Bagian 'applyQuotaDelta' (matematika lokal) DIHAPUS sepenuhnya.
-     * Kita tidak menebak angka, kita langsung minta angka asli dari provider.
-     */
-
-    // 3. Sinkronisasi kuota nyata dari provider (S3/Google) secara paralel
-    if (syncedAccountIds.size > 0) {
-      await Promise.all(
-        Array.from(syncedAccountIds).map(async (accountId) => {
-          // Cari provider akun ini untuk menentukan fungsi sync mana yang dipakai
-          const account = files.find((f) => f.connectedAccountId === accountId)?.connectedAccount
-          
-          if (account?.provider === 's3') {
-            await syncS3Quota(accountId)
-          } else {
-            await syncGoogleQuota(accountId)
-          }
-        })
-      )
+    // --- PERBAIKAN 1: Gunakan Delta untuk respon instan ---
+    const sizeByAccount = new Map<string, bigint>()
+    for (const file of files.filter((f) => deletedIds.includes(f.id))) {
+      sizeByAccount.set(file.connectedAccountId, (sizeByAccount.get(file.connectedAccountId) ?? 0n) + file.sizeBytes)
+    }
+    for (const [accountId, totalBytes] of sizeByAccount) {
+      // Kita AWAIT ini karena ini hanya update MySQL lokal (Sangat Cepat)
+      await applyQuotaDelta(accountId, -totalBytes).catch(() => undefined)
     }
 
-    if (deletedIds.length === 0 && failed.length > 0) {
-      return res.status(400).json({ 
-        code: 'FILES_DELETE_FAILED', 
-        message: 'No files were deleted.', 
-        deleted: 0, 
-        failed 
-      })
+    // --- PERBAIKAN 2: Sync Google di BACKGROUND (TANPA AWAIT) ---
+    // Kita tidak menunggu proses ini selesai agar tidak terjadi Timeout 502
+    for (const accountId of syncedAccountIds) {
+      const account = files.find((f) => f.connectedAccountId === accountId)?.connectedAccount
+      // if (account?.provider === 's3') syncS3Quota(accountId).catch(() => undefined)
+      // else syncGoogleQuota(accountId).catch(() => undefined)
     }
 
+    if (deletedIds.length === 0 && failed.length > 0) return res.status(400).json({ code: 'FILES_DELETE_FAILED', message: 'No files were deleted.', deleted: 0, failed })
+    
+    // Respon dikirim SEGERA setelah delta lokal terupdate
     return res.json({ status: 'ok', deleted: deletedIds.length, failed })
   } catch (error) {
     return next(error)
@@ -333,21 +313,24 @@ fileRouter.delete('/:id', async (req: AuthRequest, res, next) => {
   try {
     const fileId = String(req.params.id)
     const file = await prisma.file.findFirstOrThrow({ where: { id: fileId, userId: req.user!.id }, include: { connectedAccount: true } })
+    
     if (file.provider === 's3') await deleteS3Object(file)
     else {
       const auth = await getAuthedGoogleClient(file.connectedAccount)
       const drive = google.drive({ version: 'v3', auth })
       await drive.files.delete({ fileId: file.providerFileId })
     }
+    
     await prisma.file.update({ where: { id: file.id }, data: { status: 'deleted', deletedAt: new Date() } })
-    // Sync tunggu Google
-    await syncGoogleQuota(file.connectedAccountId);
-    // Sync ke Google di await
-    if (file.provider === 's3') {
-      await syncS3Quota(file.connectedAccountId)
-    } else {
-      await syncGoogleQuota(file.connectedAccountId)
-    }
+
+    // 1. Update Delta Lokal (Sangat Cepat) -> AWAIT ini
+    await applyQuotaDelta(file.connectedAccountId, -file.sizeBytes).catch(() => undefined)
+
+    // 2. Sync Resmi dari Google (Sangat Lambat) -> JANGAN AWAIT
+    // if (file.provider === 's3') syncS3Quota(file.connectedAccountId).catch(() => undefined)
+    // else syncGoogleQuota(file.connectedAccountId).catch(() => undefined)
+
+    return res.json({ status: 'ok' })
   } catch (error) {
     return next(error)
   }

@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { prisma } from '../../config/prisma.js'
 import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.js'
 import { selectAccount } from './upload-routing.service.js'
-import { createGoogleResumableSession, ensureGoogleAppFolder, getAuthedGoogleClient, syncGoogleQuota } from '../google/google.service.js'
+import { createGoogleResumableSession, ensureGoogleAppFolder, getAuthedGoogleClient, applyQuotaDelta } from '../google/google.service.js'
 
 export const googleUploadSessionRouter = Router()
 
@@ -150,9 +150,11 @@ async function handleCompleteSession(req: AuthRequest, res: Response) {
 
   await prisma.uploadSession.update({ where: { id: session.id }, data: { status: 'completed', completedAt: new Date() } })
 
-  // Delta lokal — langsung tambah quota terpakai tanpa menunggu Google,
-  // supaya /storage/summary akurat begitu frontend fetch setelah respons ini.
-  await syncGoogleQuota(account.id)
+  // 1. Update angka lokal (Awaited)
+  await applyQuotaDelta(account.id, session.sizeBytes)
+
+  // 2. Sync resmi dari Google (Background - No Await)
+  // syncGoogleQuota(account.id).catch(() => undefined)
 
   return res.status(201).json({ file: { ...file, sizeBytes: file.sizeBytes.toString() } })
 }

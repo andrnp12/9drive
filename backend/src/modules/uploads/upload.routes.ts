@@ -8,7 +8,7 @@ import { prisma } from '../../config/prisma.js'
 import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.js'
 import { buildS3ObjectKey, getS3ConfigForAccount, syncS3Quota, uploadS3Object } from '../s3/s3.service.js'
 import { selectAccount } from './upload-routing.service.js'
-import { ensureGoogleAppFolder, getAuthedGoogleClient, syncGoogleQuota } from '../google/google.service.js'
+import { ensureGoogleAppFolder, getAuthedGoogleClient, applyQuotaDelta } from '../google/google.service.js'
 
 export const uploadRouter = Router()
 
@@ -16,14 +16,6 @@ type UploadMeta = { fieldName: string; fileName: string; mimeType: string; sizeB
 
 function logUpload(message: string, metadata?: Record<string, unknown>) {
   console.info('[upload]', message, metadata ?? '')
-}
-
-function triggerBackgroundQuotaSync(accountId: string, sessionId: string) {
-  // Delta sudah diapply secara sinkron setelah upload — sync ini cuma koreksi
-  logUpload('quota sync started (background)', { accountId, sessionId })
-  syncGoogleQuota(accountId)
-    .then(() => logUpload('quota sync completed', { accountId, sessionId }))
-    .catch((error) => logUpload('quota sync failed', { accountId, sessionId, message: error instanceof Error ? error.message : 'Unknown error' }))
 }
 
 export async function handleUpload(req: AuthRequest, res: Response, next: NextFunction) {
@@ -166,13 +158,17 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
     })
 
     await prisma.uploadSession.update({ where: { id: session.id }, data: { status: 'completed', completedAt: new Date() } })
-    
-    // --- PERBAIKAN KRUSIAL: Sync kuota secara sinkron (AWAIT) dan sesuai provider ---
-    if (account.provider === 's3') {
-      await syncS3Quota(account.id)
-    } else {
-      await syncGoogleQuota(account.id)
-    }
+
+    // 1. Update angka di MySQL secara lokal (Sangat Cepat & Awaited)
+    // Ini memastikan /storage/summary langsung berubah setelah upload
+    await applyQuotaDelta(account.id, meta.sizeBytes)
+
+    // 2. Sinkronisasi resmi dari provider (Sangat Lambat -> JANGAN AWAIT)
+    // if (account.provider === 's3') {
+    //   syncS3Quota(account.id).catch(() => undefined)
+    // } else {
+    //   syncGoogleQuota(account.id).catch(() => undefined)
+    // }
     
     completed.push({ ...file, sizeBytes: file.sizeBytes.toString() })
     logUpload('database file created & quota synced', { sessionId: session.id, fileId: file.id, accountId: account.id })

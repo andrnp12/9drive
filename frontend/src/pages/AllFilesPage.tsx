@@ -287,54 +287,93 @@ export function AllFilesPage() {
   }
 
   async function uploadFile(event: FormEvent) {
-    event.preventDefault()
-    if (selectedFiles.length === 0) return
-    setLoading(true)
-    setMessage('')
-    const targetFolderId = activeFolderId || selectedFolderId
-    const uploadingFiles = [...selectedFiles]
+  event.preventDefault()
+  if (selectedFiles.length === 0) return
+  setLoading(true)
+  setMessage('')
+  const targetFolderId = activeFolderId || selectedFolderId
+  const uploadingFiles = [...selectedFiles]
 
-    async function proxyUpload(): Promise<UploadResult> {
-      const form = new FormData()
-      const filesMeta = uploadingFiles.map((file, index) => ({ fieldName: `file-${index}`, fileName: file.name, mimeType: file.type || 'application/octet-stream', sizeBytes: String(file.size), folderId: targetFolderId || undefined }))
-      form.append('filesMeta', JSON.stringify(filesMeta))
-      uploadingFiles.forEach((file, index) => form.append(`file-${index}`, file))
-      return uploadWithProgress(form, (percent) => setUploadProgress((current) => ({ ...current, percent, files: estimateUploadProgress(uploadingFiles, percent, 'uploading') })))
-    }
+  try {
+    setUploadProgress({ 
+      open: true, 
+      fileName: uploadingFiles.length === 1 ? uploadingFiles[0].name : `${uploadingFiles.length} files`, 
+      percent: 0, 
+      status: 'uploading', 
+      files: estimateUploadProgress(uploadingFiles, 0, 'uploading') 
+    })
 
-    try {
-      setUploadProgress({ open: true, fileName: uploadingFiles.length === 1 ? uploadingFiles[0].name : `${uploadingFiles.length} files`, percent: 0, status: 'uploading', files: estimateUploadProgress(uploadingFiles, 0, 'uploading') })
+    const allResults: UploadResult[] = []
 
-      let uploadResult: UploadResult
-      if (uploadingFiles.length === 1) {
-        // Single file: try the direct-to-Google-Drive path first (avoids
-        // Railway's request timeout on large files). Falls back to the
-        // proxied endpoint automatically if no Google Drive account fits.
-        const directResult = await uploadFileDirectToGoogle(uploadingFiles[0], targetFolderId || undefined, (percent) =>
-          setUploadProgress((current) => ({ ...current, percent, files: estimateUploadProgress(uploadingFiles, percent, 'uploading') })),
+    // --- PERBAIKAN: Loop semua file, coba Direct Upload untuk SETIAP file ---
+    for (let i = 0; i < uploadingFiles.length; i++) {
+      const file = uploadingFiles[i]
+      
+      // Update progress text agar user tahu file mana yang sedang berjalan
+      setUploadProgress(curr => ({ ...curr, fileName: `Uploading ${i+1}/${uploadingFiles.length}: ${file.name}` }))
+
+      try {
+        // Coba jalur Direct ke Google untuk setiap file
+        const directResult = await uploadFileDirectToGoogle(
+          file, 
+          targetFolderId || undefined, 
+          (percent) => {
+            setUploadProgress(current => {
+              const newFiles = [...current.files];
+              if (newFiles[i]) newFiles[i].percent = percent;
+              return { ...current, percent: Math.round((i / uploadingFiles.length) * 100), files: newFiles };
+            });
+          }
         )
-        uploadResult = directResult ?? (await proxyUpload())
-      } else {
-        uploadResult = await proxyUpload()
-      }
 
-      const uploadedCount = uploadResult.files?.length ?? (uploadResult.file ? 1 : selectedFiles.length)
-      const failedCount = uploadResult.failed?.length ?? 0
-      const failedNames = new Set((uploadResult.failed ?? []).map((file) => file.fileName).filter(Boolean))
-      setUploadProgress((current) => ({ ...current, percent: 100, status: failedCount > 0 ? 'partial' : 'done', files: uploadingFiles.map((file) => ({ name: file.name, size: file.size, percent: failedNames.has(file.name) ? 0 : 100, status: failedNames.has(file.name) ? 'error' : 'done' })) }))
-      setSelectedFiles([])
-      setSelectedFolderId('')
-      setUploadOpen(false)
-      setMessage(failedCount > 0 ? `${uploadedCount} files uploaded. ${failedCount} failed.` : selectedFiles.length === 1 ? 'File uploaded to Google Drive.' : `${uploadedCount} files uploaded to Google Drive.`)
-      await loadFiles()
-      window.dispatchEvent(new Event('9drive:storage-changed'))
-    } catch (error) {
-      setUploadProgress((current) => ({ ...current, status: 'error', files: current.files.map((file) => ({ ...file, status: 'error' })) }))
-      setMessage(error instanceof Error ? error.message : 'Upload failed')
-    } finally {
-      setLoading(false)
+        // Jika direct gagal (misal: akun tidak cukup space), fallback ke proxy
+        const finalRes = directResult ?? await (async () => {
+          const form = new FormData()
+          const meta = { fieldName: 'file-0', fileName: file.name, mimeType: file.type || 'application/octet-stream', sizeBytes: String(file.size), folderId: targetFolderId || undefined }
+          form.append('filesMeta', JSON.stringify([meta]))
+          form.append('file-0', file)
+          return uploadWithProgress(form, () => {}) // progress sudah dihandle loop
+        })()
+
+        allResults.push(finalRes)
+      } catch (e) {
+        console.error(`Error uploading ${file.name}:`, e)
+        allResults.push({ failed: [{ fileName: file.name }] })
+      }
     }
+
+    // Gabungkan hasil akhir
+    const finalUploadResult: UploadResult = {
+      files: allResults.flatMap(r => r.files || []),
+      file: allResults[0]?.file,
+      failed: allResults.flatMap(r => r.failed || [])
+    }
+
+    // Update Final Progress
+    setUploadProgress(current => ({ 
+      ...current, 
+      percent: 100, 
+      status: finalUploadResult.failed?.length ? 'partial' : 'done', 
+      files: uploadingFiles.map((f, idx) => ({ 
+        name: f.name, 
+        size: f.size, 
+        percent: 100, 
+        status: allResults[idx]?.failed ? 'error' : 'done' 
+      })) 
+    }))
+
+    setSelectedFiles([])
+    setSelectedFolderId('')
+    setUploadOpen(false)
+    setMessage(finalUploadResult.failed?.length ? 'Some files failed to upload.' : 'All files uploaded successfully.')
+    await loadFiles()
+    window.dispatchEvent(new Event('9drive:storage-changed'))
+  } catch (error) {
+    setMessage(error instanceof Error ? error.message : 'Upload failed')
+  } finally {
+    setLoading(false)
   }
+}
 
   async function syncGoogleDrive() {
     setSyncingDrive(true)
