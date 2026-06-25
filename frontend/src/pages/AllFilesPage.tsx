@@ -271,9 +271,19 @@ export function AllFilesPage() {
 
     // PUT succeeded — ask backend to look up the file ID in Google Drive.
     onProgress(99)
+
+    // --- PERBAIKAN: Pastikan token segar sebelum memanggil endpoint /complete ---
+    const freshToken = await ensureFreshToken(); 
+    if (!freshToken) {
+      throw new Error('Session expired. Please login again to finalize upload.');
+    }
+
     const completeRes = await fetch(`${API_URL}/uploads/google/complete`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAccessToken()}` },
+      headers: { 
+        'Content-Type': 'application/json', 
+        Authorization: `Bearer ${freshToken}` // Gunakan token yang sudah di-refresh
+      },
       body: JSON.stringify({ sessionId, folderId }),
     })
     if (!completeRes.ok) {
