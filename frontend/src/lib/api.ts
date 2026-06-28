@@ -39,52 +39,35 @@ async function refreshAccessToken() {
 }
 
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
-  const headers = new Headers(options.headers)
+  const { skipAuth, retry, ...fetchOptions } = options
+  const headers = new Headers(fetchOptions.headers)
   const token = getAccessToken()
-  console.log(`📡 Request to ${path} | Retry: ${options.retry} | Token: ${token?.substring(0, 10)}...`);
-  
-  if (!options.skipAuth && token) {
+
+  if (!skipAuth && token) {
     headers.set('Authorization', `Bearer ${token}`)
   }
-  
-  if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
+
+  if (fetchOptions.body && !(fetchOptions.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
 
-  const response = await fetch(`${API_URL}${path}`, { ...options, headers })
+  const response = await fetch(`${API_URL}${path}`, { ...fetchOptions, headers })
 
-  // 1. TANGANI 401 (UNAUTHORIZED)
-  if (response.status === 401 && options.retry !== false && !options.skipAuth) {
-    // Tunggu proses refresh (baik yang baru dimulai atau yang sedang berjalan)
+  if (response.status === 401 && retry !== false && !skipAuth) {
     const success = await refreshAccessToken()
-    
+
     if (success) {
-      // Ambil token terbaru yang baru saja disimpan oleh refreshAccessToken
-      const newToken = getAccessToken()
-      const retryHeaders = new Headers(options.headers)
-      if (newToken) retryHeaders.set('Authorization', `Bearer ${newToken}`)
-      
-      // Jalankan ulang request dengan token baru
-      return apiFetch<T>(path, { ...options, headers: retryHeaders, retry: false })
+      // Langsung rekursi tanpa pass headers lama — biarkan apiFetch ambil token terbaru
+      return apiFetch<T>(path, { ...options, retry: false })
     }
   }
 
-  // 2. TANGANI ERROR LAINNYA
   if (!response.ok) {
-    // HANYA LOGOUT jika:
-    // - Status 401
-    // - SUDAH mencoba retry (retry === false)
-    // - Dan bukan request yang skipAuth
-    if (response.status === 401 && options.retry === false && !options.skipAuth) {
-      console.warn("Sesi benar-benar habis. Logout...");
+    if (response.status === 401 && retry === false && !skipAuth) {
+      console.warn('Sesi benar-benar habis. Logout...')
       clearAuthSession()
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login'
-      }
+      if (typeof window !== 'undefined') window.location.href = '/login'
     }
-    
-    // Untuk error 500, 502, 504 (TIDB Cloud Cold Start), jangan logout!
-    // Cukup lempar error agar UI menampilkan pesan "Gagal memuat data"
     const error = await response.json().catch(() => ({ message: response.statusText }))
     throw new Error(error.message ?? 'Request failed')
   }
