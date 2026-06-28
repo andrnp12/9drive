@@ -567,7 +567,6 @@ async function downloadFile(file: FileItem | null) {
   try {
     const data = await apiFetch<{ url: string }>(`/files/${file.id}/download-url`, { method: 'GET' })
     
-    // Buat anchor element, jangan gunakan window.location.assign
     const a = document.createElement('a')
     a.href = data.url
     a.download = file.name ?? ''
@@ -576,6 +575,14 @@ async function downloadFile(file: FileItem | null) {
     document.body.removeChild(a)
     
     setContextMenu({ x: 0, y: 0, file: null })
+    
+    // Tambah ini sementara
+    console.log('Download triggered, files state saat ini:', files.length)
+    setTimeout(() => {
+      console.log('Files state 3 detik setelah download:', files.length)
+      loadFiles().then(() => console.log('loadFiles selesai')).catch((e) => console.error('loadFiles error:', e))
+    }, 3000)
+    
   } catch (error) {
     console.error('Download error:', error)
     setMessage(error instanceof Error ? error.message : 'Failed to generate download link')
