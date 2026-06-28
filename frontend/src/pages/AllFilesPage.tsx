@@ -558,16 +558,20 @@ export function AllFilesPage() {
   }
 
   async function downloadFile() {
-  if (!activeFile?.id) return
-  
+  // 1. Ambil referensi file saat ini dan simpan di variabel lokal
+  const fileToDownload = activeFile; 
+
+  // 2. Cek apakah file ada menggunakan variabel lokal
+  if (!fileToDownload || !fileToDownload.id) {
+    setMessage('No file selected for download.');
+    return;
+  }
+
   try {
-    // 1. Minta URL download sementara dari backend
-    const data = await apiFetch<{ url: string }>(`/files/${activeFile.id}/download-url`, { method: 'GET' })
+    // 3. Gunakan fileToDownload.id, BUKAN activeFile.id
+    const data = await apiFetch<{ url: string }>(`/files/${fileToDownload.id}/download-url`, { method: 'GET' })
     
-    // 2. Alihkan browser ke URL tersebut
-    // window.location.assign akan memicu download asli yang bisa dicegat XDM
     window.location.assign(data.url)
-    
     setContextMenu({ x: 0, y: 0, file: null })
   } catch (error) {
     console.error('Download error:', error)
