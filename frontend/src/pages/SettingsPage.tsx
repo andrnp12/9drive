@@ -175,37 +175,52 @@ export function SettingsPage() {
 
           <Card className="p-4 sm:p-5">
             <h2 className="font-extrabold">Connected Storage Accounts</h2>
-            <div className="grid grid-cols-3 gap-2 sm:flex">
-              {/* Tombol Sync */}
-              <Button 
-                className="w-full" 
-                variant="outline" 
-                onClick={() => sync(selectedAccount.id)} 
-                disabled={syncingAccountId === selectedAccount.id}
-              >
-                <RefreshCw className={syncingAccountId === selectedAccount.id ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
-                {syncingAccountId === selectedAccount.id ? 'Syncing...' : 'Sync'}
-              </Button>
+            <div className="mt-4 grid gap-3">
+              {accounts.length === 0 ? <p className="text-sm text-slate-500">No connected storage account yet.</p> : <>
+                <label className="grid gap-2 text-sm font-semibold">Choose Account<select className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm" value={selectedAccount?.id ?? ''} onChange={(event) => setSelectedAccountId(event.target.value)}>{accounts.map((account) => <option key={account.id} value={account.id}>{providerLabel(account.provider)} - {account.displayName || account.email} ({account.status})</option>)}</select></label>
+                {selectedAccount ? <div className="rounded-xl bg-slate-50 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0"><p className="break-all font-semibold">{selectedAccount.displayName || selectedAccount.email}</p><p className="text-sm text-slate-500">{providerLabel(selectedAccount.provider)} · {selectedAccount.status}</p></div>
+                    <div className="grid grid-cols-3 gap-2 sm:flex">
+                      {/* Tombol Sync */}
+                      <Button 
+                        className="w-full" 
+                        variant="outline" 
+                        onClick={() => sync(selectedAccount.id)} 
+                        disabled={syncingAccountId === selectedAccount.id}
+                      >
+                        <RefreshCw className={syncingAccountId === selectedAccount.id ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
+                        {syncingAccountId === selectedAccount.id ? 'Syncing...' : 'Sync'}
+                      </Button>
 
-              {/* TOMBOL RECONNECT BARU: Muncul hanya jika provider adalah google_drive */}
-              {selectedAccount.provider === 'google_drive' && (
-                <Button 
-                  className="w-full" 
-                  variant="outline" 
-                  onClick={() => handleReconnect(selectedAccount.id)}
-                >
-                  <RefreshCw className="h-4 w-4" /> Reconnect
-                </Button>
-              )}
+                      {/* TOMBOL RECONNECT BARU: Muncul hanya jika provider adalah google_drive */}
+                      {selectedAccount.provider === 'google_drive' && (
+                        <Button 
+                          className="w-full" 
+                          variant="outline" 
+                          onClick={() => handleReconnect(selectedAccount.id)}
+                        >
+                          <RefreshCw className="h-4 w-4" /> Reconnect
+                        </Button>
+                      )}
 
-              {/* Tombol Disconnect */}
-              <Button 
-                className="w-full" 
-                variant="danger" 
-                onClick={() => setAccountToDisconnect(selectedAccount)}
-              >
-                <Trash2 className="h-4 w-4" />Disconnect
-              </Button>
+                      {/* Tombol Disconnect */}
+                      <Button 
+                        className="w-full" 
+                        variant="danger" 
+                        onClick={() => setAccountToDisconnect(selectedAccount)}
+                      >
+                        <Trash2 className="h-4 w-4" />Disconnect
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs sm:text-sm">
+                    <div className="rounded-xl bg-white p-3"><p className="font-extrabold text-slate-950">{formatBytes(selectedAccount.storageAccount?.usedBytes)}</p><p className="mt-1 text-slate-500">Used</p></div>
+                    <div className="rounded-xl bg-white p-3"><p className="font-extrabold text-slate-950">{storageLimitLabel(selectedAccount)}</p><p className="mt-1 text-slate-500">Total</p></div>
+                    <div className="rounded-xl bg-white p-3"><p className="font-extrabold text-slate-950">{availableLabel(selectedAccount)}</p><p className="mt-1 text-slate-500">Free</p></div>
+                  </div>
+                </div> : null}
+              </>}
             </div>
           </Card>
         </div>
