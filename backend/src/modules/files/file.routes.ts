@@ -309,6 +309,47 @@ fileRouter.get('/:id/download', async (req: AuthRequest, res, next) => {
   }
 })
 
+// Endpoint baru untuk mendapatkan link download sementara
+fileRouter.get('/:id/download-url', async (req: AuthRequest, res, next) => {
+  try {
+    const fileId = String(req.params.id)
+    const file = await prisma.file.findFirstOrThrow({ where: { id: fileId, userId: req.user!.id } })
+    
+    // Gunakan logika yang sama dengan preview-token
+    const token = randomToken(32)
+    await prisma.filePreviewToken.create({ 
+      data: { 
+        fileId: file.id, 
+        userId: req.user!.id, 
+        tokenHash: hashToken(token), 
+        expiresAt: new Date(Date.now() + 10 * 60_000) // Berlaku 5 menit
+      } 
+    })
+    
+    const downloadUrl = `${req.protocol}://${req.get('host')}/files/download-by-token?token=${token}`
+    return res.json({ url: downloadUrl })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+// Endpoint baru untuk menghandle download via token (Tanpa requireAuth)
+fileRouter.get('/download-by-token', async (req, res, next) => {
+  try {
+    const token = String(req.query.token)
+    const preview = await prisma.filePreviewToken.findFirst({
+      where: { tokenHash: hashToken(token), expiresAt: { gt: new Date() } },
+      include: { file: { include: { connectedAccount: true } } },
+    })
+    if (!preview) return res.status(403).json({ message: 'Link expired or invalid.' })
+    
+    // Panggil fungsi stream yang sudah ada
+    return streamProviderFile(preview.file, req.headers.range, res, { disposition: 'attachment' })
+  } catch (error) {
+    return next(error)
+  }
+})
+
 fileRouter.delete('/:id', async (req: AuthRequest, res, next) => {
   try {
     const fileId = String(req.params.id)

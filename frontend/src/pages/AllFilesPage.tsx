@@ -558,18 +558,22 @@ export function AllFilesPage() {
   }
 
   async function downloadFile() {
-    if (!activeFile?.id) return
-    const response = await fetch(`${API_URL}/files/${activeFile.id}/download`, { headers: { Authorization: `Bearer ${getAccessToken()}` } })
-    if (!response.ok) throw new Error('Download failed')
-    const blob = await response.blob()
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = activeFile.name
-    link.click()
-    URL.revokeObjectURL(url)
+  if (!activeFile?.id) return
+  
+  try {
+    // 1. Minta URL download sementara dari backend
+    const data = await apiFetch<{ url: string }>(`/files/${activeFile.id}/download-url`, { method: 'GET' })
+    
+    // 2. Alihkan browser ke URL tersebut
+    // window.location.assign akan memicu download asli yang bisa dicegat XDM
+    window.location.assign(data.url)
+    
     setContextMenu({ x: 0, y: 0, file: null })
+  } catch (error) {
+    console.error('Download error:', error)
+    setMessage(error instanceof Error ? error.message : 'Failed to generate download link')
   }
+}
 
   async function renameFile(event: FormEvent) {
     event.preventDefault()
