@@ -62,17 +62,37 @@ connectedAccountRouter.get('/', requireAuth, async (req: AuthRequest, res, next)
   }
 })
 
+// MODIFIED: Support for Reconnect via accountId query
 async function createGoogleConnectUrl(req: AuthRequest) {
-  const query = z.object({ providerConfigId: z.string().min(1).optional() }).parse(req.query)
+  const query = z.object({ 
+    providerConfigId: z.string().min(1).optional(),
+    accountId: z.string().min(1).optional() // Tambahkan accountId
+  }).parse(req.query)
+  
   const config = query.providerConfigId
     ? await prisma.providerConfig.findFirstOrThrow({ where: { id: query.providerConfigId, OR: [{ userId: req.user!.id }, { userId: null }], provider: 'google_drive', status: 'active' } })
     : await prisma.providerConfig.findFirstOrThrow({ where: { userId: null, provider: 'google_drive', status: 'active' }, orderBy: { createdAt: 'desc' } })
+  
   const state = randomToken()
-  await prisma.oauthState.create({ data: { userId: req.user!.id, providerConfigId: config.id, flow: 'connect', stateHash: hashToken(state), expiresAt: new Date(Date.now() + 10 * 60_000) } })
+  
+  // TENTUKAN FLOW: Jika ada accountId, maka ini adalah flow 'reconnect'
+  const flow = query.accountId ? 'reconnect' : 'connect'
+  const stateValue = query.accountId ? `reconnect:${query.accountId}` : 'new_connection'
+  
+  await prisma.oauthState.create({ 
+    data: { 
+      userId: req.user!.id, 
+      providerConfigId: config.id, 
+      flow: flow, 
+      stateHash: hashToken(state), 
+      expiresAt: new Date(Date.now() + 10 * 60_000) 
+    } 
+  })
+  
   const client = createOAuthClient(config)
   return client.generateAuthUrl({
     access_type: 'offline',
-    prompt: 'consent',
+    prompt: 'consent', // WAJIB agar Google memberikan Refresh Token baru
     include_granted_scopes: true,
     scope: config.scopes as string[],
     state,
@@ -187,14 +207,15 @@ connectedAccountRouter.get('/google/callback', async (req, res, next) => {
     const oauth2 = google.oauth2({ version: 'v2', auth: client })
     const profile = await oauth2.userinfo.get()
     const providerAccountId = profile.data.id
-    const email = profile.data.email
-    if (!providerAccountId || !email) return res.status(400).json({ code: 'GOOGLE_PROFILE_FAILED', message: 'Google profile missing id or email.' })
+    const email_val = profile.data.email
+    if (!providerAccountId || !email_val) return res.status(400).json({ code: 'GOOGLE_PROFILE_FAILED', message: 'Google profile missing id or email.' })
 
+    // FLOW 1: LOGIN USER BARU/LAMA
     if (oauthState.flow === 'login') {
-      const name = profile.data.name || email.split('@')[0] || 'Google User'
+      const name = profile.data.name || email_val.split('@')[0] || 'Google User'
       const user = await prisma.user.upsert({
-        where: { email },
-        create: { email, name, passwordHash: await hashPassword(randomToken(32)) },
+        where: { email: email_val },
+        create: { email: email_val, name, passwordHash: await hashPassword(randomToken(32)) },
         update: { name },
       })
       const existingAccount = await prisma.connectedAccount.findUnique({ where: { userId_provider_providerAccountId: { userId: user.id, provider: 'google_drive', providerAccountId } } })
@@ -207,7 +228,7 @@ connectedAccountRouter.get('/google/callback', async (req, res, next) => {
           providerConfigId: oauthState.providerConfigId,
           provider: 'google_drive',
           providerAccountId,
-          email,
+          email: email_val,
           displayName: profile.data.name,
           avatarUrl: profile.data.picture,
           accessTokenEncrypted: encryptText(tokens.access_token),
@@ -218,7 +239,7 @@ connectedAccountRouter.get('/google/callback', async (req, res, next) => {
         },
         update: {
           providerConfigId: oauthState.providerConfigId,
-          email,
+          email: email_val,
           displayName: profile.data.name,
           avatarUrl: profile.data.picture,
           accessTokenEncrypted: encryptText(tokens.access_token),
@@ -235,6 +256,39 @@ connectedAccountRouter.get('/google/callback', async (req, res, next) => {
       return res.redirect(`${env.FRONTEND_URL}/google-auth?token=${handoffToken}`)
     }
 
+    // FLOW 2: RECONNECT (Memperbarui Token Akun yang Sudah Ada)
+    if (oauthState.flow === 'reconnect') {
+      // Cari accountId dari state value yang disimpan di database (//Sangat penting)
+      // Karena oauthState.userId sudah ada, kita cari account yang cocok dengan providerAccountId
+      const account = await prisma.connectedAccount.upsert({
+        where: { userId_provider_providerAccountId: { userId: oauthState.userId, provider: 'google_drive', providerAccountId } },
+        create: { // Fallback jika ternyata akun terhapus tapi state masih ada
+          userId: oauthState.userId,
+          providerConfigId: oauthState.providerConfigId,
+          provider: 'google_drive',
+          providerAccountId,
+          email: email_val,
+          displayName: profile.data.name,
+          avatarUrl: profile.data.picture,
+          accessTokenEncrypted: encryptText(tokens.access_token),
+          refreshTokenEncrypted: tokens.refresh_token ? encryptText(tokens.refresh_token) : encryptText(randomToken()),
+          tokenExpiresAt: new Date(tokens.expiry_date ?? Date.now() + 3600_000),
+          scopes: oauthState.providerConfig.scopes as string[],
+          status: 'connected',
+        },
+        update: {
+          accessTokenEncrypted: encryptText(tokens.access_token),
+          refreshTokenEncrypted: tokens.refresh_token ? encryptText(tokens.refresh_token) : undefined,
+          tokenExpiresAt: new Date(tokens.expiry_date ?? Date.now() + 3600_000),
+          status: 'connected',
+        },
+      })
+      await prisma.oauthState.update({ where: { id: oauthState.id }, data: { usedAt: new Date() } })
+      await syncGoogleQuota(account.id)
+      return res.redirect(`${env.FRONTEND_URL}/google-connected?status=success`)
+    }
+
+    // FLOW 3: CONNECT BARU
     if (oauthState.flow !== 'connect' || !oauthState.userId) return res.status(400).json({ code: 'GOOGLE_OAUTH_STATE_INVALID', message: 'OAuth state expired.' })
     const existingAccount = await prisma.connectedAccount.findUnique({ where: { userId_provider_providerAccountId: { userId: oauthState.userId, provider: 'google_drive', providerAccountId } } })
     const refreshTokenEncrypted = tokens.refresh_token ? encryptText(tokens.refresh_token) : existingAccount?.refreshTokenEncrypted
@@ -247,7 +301,7 @@ connectedAccountRouter.get('/google/callback', async (req, res, next) => {
         providerConfigId: oauthState.providerConfigId,
         provider: 'google_drive',
         providerAccountId,
-        email,
+        email: email_val,
         displayName: profile.data.name,
         avatarUrl: profile.data.picture,
         accessTokenEncrypted: encryptText(tokens.access_token),
@@ -258,7 +312,7 @@ connectedAccountRouter.get('/google/callback', async (req, res, next) => {
       },
       update: {
         providerConfigId: oauthState.providerConfigId,
-        email,
+        email: email_val,
         displayName: profile.data.name,
         avatarUrl: profile.data.picture,
         accessTokenEncrypted: encryptText(tokens.access_token),
@@ -276,6 +330,7 @@ connectedAccountRouter.get('/google/callback', async (req, res, next) => {
   }
 })
 
+// Sisa route (sync-quota, delete) tetap sama seperti kode Anda
 connectedAccountRouter.post('/:id/sync-quota', requireAuth, async (req: AuthRequest, res, next) => {
   try {
     const accountId = String(req.params.id)

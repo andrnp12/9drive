@@ -40,14 +40,13 @@ async function refreshAccessToken() {
 
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const headers = new Headers(options.headers)
-  const token = getAccessToken()
   
-  if (!options.skipAuth && token) {
-    headers.set('Authorization', `Bearer ${token}`)
-  }
-  
-  if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json')
+  // PERBAIKAN: Hanya set Authorization jika BELUM ada di headers
+  if (!options.skipAuth && !headers.has('Authorization')) {
+    const token = getAccessToken()
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`)
+    }
   }
 
   const response = await fetch(`${API_URL}${path}`, { ...options, headers })

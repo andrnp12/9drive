@@ -11,6 +11,11 @@ import { getAuthedGoogleClient, syncGoogleAppFolderFiles, applyQuotaDelta } from
 
 export const fileRouter = Router()
 
+// ============================================================
+// 1. PUBLIC ROUTES (Sangat Penting: Di atas requireAuth)
+// ============================================================
+
+// Preview file via token
 fileRouter.get('/preview/:token', async (req, res, next) => {
   try {
     const token = String(req.params.token)
@@ -18,38 +23,16 @@ fileRouter.get('/preview/:token', async (req, res, next) => {
       where: { tokenHash: hashToken(token), expiresAt: { gt: new Date() } },
       include: { file: { include: { connectedAccount: true } } },
     })
-    if (!preview || preview.file.status !== 'active') return res.status(404).json({ code: 'PREVIEW_NOT_FOUND', message: 'Preview token not found.' })
+    if (!preview || preview.file.status !== 'active') {
+      return res.status(404).json({ code: 'PREVIEW_NOT_FOUND', message: 'Preview token not found.' })
+    }
     return streamProviderFile(preview.file, req.headers.range, res, { disposition: 'inline' })
   } catch (error) {
     return next(error)
   }
 })
 
-// Endpoint baru untuk mendapatkan link download sementara
-fileRouter.get('/:id/download-url', async (req: AuthRequest, res, next) => {
-  try {
-    const fileId = String(req.params.id)
-    const file = await prisma.file.findFirstOrThrow({ where: { id: fileId, userId: req.user!.id } })
-    
-    // Gunakan logika yang sama dengan preview-token
-    const token = randomToken(32)
-    await prisma.filePreviewToken.create({ 
-      data: { 
-        fileId: file.id, 
-        userId: req.user!.id, 
-        tokenHash: hashToken(token), 
-        expiresAt: new Date(Date.now() + 10 * 60_000) // Berlaku 5 menit
-      } 
-    })
-    
-    const downloadUrl = `${req.protocol}://${req.get('host')}/files/download-by-token?token=${token}`
-    return res.json({ url: downloadUrl })
-  } catch (error) {
-    return next(error)
-  }
-})
-
-// Endpoint baru untuk menghandle download via token (Tanpa requireAuth)
+// Download file via token (Untuk XDM / Download Manager)
 fileRouter.get('/download-by-token', async (req, res, next) => {
   try {
     const token = String(req.query.token)
@@ -57,19 +40,22 @@ fileRouter.get('/download-by-token', async (req, res, next) => {
       where: { tokenHash: hashToken(token), expiresAt: { gt: new Date() } },
       include: { file: { include: { connectedAccount: true } } },
     })
-    if (!preview) return res.status(403).json({ message: 'Link expired or invalid.' })
-    
-    // Panggil fungsi stream yang sudah ada
+    if (!preview) {
+      return res.status(403).json({ message: 'Link expired or invalid.' })
+    }
     return streamProviderFile(preview.file, req.headers.range, res, { disposition: 'attachment' })
   } catch (error) {
     return next(error)
   }
 })
 
+// ============================================================
+// MIDDLEWARE AUTHENTICATION
+// Semua route di bawah ini memerlukan Bearer Token
+// ============================================================
 fileRouter.use(requireAuth)
 
-// GANTI HANYA bagian ini di file.routes.ts Anda:
-// fileRouter.get('/', ...) — endpoint GET /files
+// --- General Files Routes ---
 
 fileRouter.get('/', async (req: AuthRequest, res, next) => {
   try {
@@ -124,13 +110,18 @@ fileRouter.get('/', async (req: AuthRequest, res, next) => {
   }
 })
 
+// --- Batch Operations ---
+
 const batchFileSchema = z.object({ fileIds: z.array(z.string().min(1)).min(1).max(100) })
 
 fileRouter.patch('/batch', async (req: AuthRequest, res, next) => {
   try {
     const body = batchFileSchema.extend({ folderId: z.string().nullable().optional() }).parse(req.body)
     if (body.folderId) await prisma.folder.findFirstOrThrow({ where: { id: body.folderId, userId: req.user!.id, deletedAt: null } })
-    const result = await prisma.file.updateMany({ where: { id: { in: body.fileIds }, userId: req.user!.id, status: 'active' }, data: { folderId: body.folderId ?? null } })
+    const result = await prisma.file.updateMany({ 
+      where: { id: { in: body.fileIds }, userId: req.user!.id, status: 'active' }, 
+      data: { folderId: body.folderId ?? null } 
+    })
     return res.json({ status: 'ok', moved: result.count })
   } catch (error) {
     return next(error)
@@ -140,9 +131,11 @@ fileRouter.patch('/batch', async (req: AuthRequest, res, next) => {
 fileRouter.delete('/batch', async (req: AuthRequest, res, next) => {
   try {
     const body = batchFileSchema.parse(req.body)
-    const files = await prisma.file.findMany({ where: { id: { in: body.fileIds }, userId: req.user!.id, status: 'active' }, include: { connectedAccount: true } })
+    const files = await prisma.file.findMany({ 
+      where: { id: { in: body.fileIds }, userId: req.user!.id, status: 'active' }, 
+      include: { connectedAccount: true } 
+    })
     const deletedIds: string[] = []
-    const syncedAccountIds = new Set<string>()
     const failed: Array<{ fileId: string; message: string }> = []
 
     for (const file of files) {
@@ -154,42 +147,37 @@ fileRouter.delete('/batch', async (req: AuthRequest, res, next) => {
           await drive.files.delete({ fileId: file.providerFileId })
         }
         deletedIds.push(file.id)
-        syncedAccountIds.add(file.connectedAccountId)
       } catch (error) {
         failed.push({ fileId: file.id, message: error instanceof Error ? error.message : 'Delete failed' })
       }
     }
 
     if (deletedIds.length > 0) {
-      await prisma.file.updateMany({ where: { id: { in: deletedIds }, userId: req.user!.id }, data: { status: 'deleted', deletedAt: new Date() } })
+      await prisma.file.updateMany({ 
+        where: { id: { in: deletedIds }, userId: req.user!.id }, 
+        data: { status: 'deleted', deletedAt: new Date() } 
+      })
     }
 
-    // --- PERBAIKAN 1: Gunakan Delta untuk respon instan ---
+    // Update Delta Lokal agar angka kuota berubah instan & konsisten
     const sizeByAccount = new Map<string, bigint>()
     for (const file of files.filter((f) => deletedIds.includes(f.id))) {
       sizeByAccount.set(file.connectedAccountId, (sizeByAccount.get(file.connectedAccountId) ?? 0n) + file.sizeBytes)
     }
     for (const [accountId, totalBytes] of sizeByAccount) {
-      // Kita AWAIT ini karena ini hanya update MySQL lokal (Sangat Cepat)
       await applyQuotaDelta(accountId, -totalBytes).catch(() => undefined)
     }
 
-    // --- PERBAIKAN 2: Sync Google di BACKGROUND (TANPA AWAIT) ---
-    // Kita tidak menunggu proses ini selesai agar tidak terjadi Timeout 502
-    for (const accountId of syncedAccountIds) {
-      const account = files.find((f) => f.connectedAccountId === accountId)?.connectedAccount
-      // if (account?.provider === 's3') syncS3Quota(accountId).catch(() => undefined)
-      // else syncGoogleQuota(accountId).catch(() => undefined)
+    if (deletedIds.length === 0 && failed.length > 0) {
+      return res.status(400).json({ code: 'FILES_DELETE_FAILED', message: 'No files were deleted.', deleted: 0, failed })
     }
-
-    if (deletedIds.length === 0 && failed.length > 0) return res.status(400).json({ code: 'FILES_DELETE_FAILED', message: 'No files were deleted.', deleted: 0, failed })
-    
-    // Respon dikirim SEGERA setelah delta lokal terupdate
     return res.json({ status: 'ok', deleted: deletedIds.length, failed })
   } catch (error) {
     return next(error)
   }
 })
+
+// --- Shared & Sync ---
 
 fileRouter.get('/shared-links', async (req: AuthRequest, res, next) => {
   try {
@@ -221,7 +209,9 @@ fileRouter.post('/sync-google', async (req: AuthRequest, res, next) => {
     })
 
     const results = []
-    for (const account of accounts) results.push(await syncGoogleAppFolderFiles(account.id, req.user!.id))
+    for (const account of accounts) {
+      results.push(await syncGoogleAppFolderFiles(account.id, req.user!.id))
+    }
 
     return res.json({
       status: 'ok',
@@ -235,6 +225,123 @@ fileRouter.post('/sync-google', async (req: AuthRequest, res, next) => {
     return next(error)
   }
 })
+
+// ============================================================
+// SPECIFIC FILE ROUTES (WAJIB DI ATAS /:id)
+// ============================================================
+
+// Generate link download sementara (Aman dari 500/undefined)
+fileRouter.get('/:id/download-url', async (req: AuthRequest, res, next) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ code: 'AUTH_REQUIRED', message: 'Bearer token required.' });
+    }
+
+    const userId = req.user.id;
+    const fileId = String(req.params.id);
+
+    const file = await prisma.file.findFirst({ 
+      where: { id: fileId, userId: userId } 
+    })
+
+    if (!file) {
+      return res.status(404).json({ code: 'FILE_NOT_FOUND', message: 'File not found.' });
+    }
+
+    const token = randomToken(32)
+    await prisma.filePreviewToken.create({ 
+      data: { 
+        fileId: file.id, 
+        userId: userId, 
+        tokenHash: hashToken(token), 
+        expiresAt: new Date(Date.now() + 5 * 60_000) 
+      } 
+    })
+
+    const downloadUrl = `${req.protocol}://${req.get('host')}/files/download-by-token?token=${token}`
+    return res.json({ url: downloadUrl })
+  } catch (error: any) {
+    return next(error)
+  }
+})
+
+fileRouter.post('/:id/preview-token', async (req: AuthRequest, res, next) => {
+  try {
+    const fileId = String(req.params.id)
+    const file = await prisma.file.findFirstOrThrow({ where: { id: fileId, userId: req.user!.id, status: 'active' } })
+    const token = randomToken(32)
+    await prisma.filePreviewToken.create({ data: { fileId: file.id, userId: req.user!.id, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + 10 * 60_000) } })
+    const path = `/files/preview/${token}`
+    return res.status(201).json({ path, url: `${req.protocol}://${req.get('host')}${path}` })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+fileRouter.get('/:id/thumbnail-url', async (req: AuthRequest, res, next) => {
+  try {
+    const file = await prisma.file.findFirstOrThrow({
+      where: { id: String(req.params.id), userId: req.user!.id, status: 'active' },
+      include: { connectedAccount: true },
+    })
+    if (file.provider !== 'google_drive') {
+      return res.status(404).json({ code: 'NO_THUMBNAIL', message: 'Thumbnails only available for Google Drive files.' })
+    }
+    const auth = await getAuthedGoogleClient(file.connectedAccount)
+    const drive = google.drive({ version: 'v3', auth })
+    const metadata = await drive.files.get({ fileId: file.providerFileId, fields: 'thumbnailLink' })
+    const thumbnailLink = metadata.data.thumbnailLink
+    if (!thumbnailLink) return res.status(404).json({ code: 'NO_THUMBNAIL', message: 'Thumbnail not yet available.' })
+    return res.status(200).json({ url: thumbnailLink.replace(/=s\d+$/, '=s400') })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+fileRouter.get('/:id/view-url', async (req: AuthRequest, res, next) => {
+  try {
+    const fileId = String(req.params.id)
+    const file = await prisma.file.findFirstOrThrow({ where: { id: fileId, userId: req.user!.id }, include: { connectedAccount: true } })
+    if (file.provider === 's3') return res.json({ url: null })
+    const auth = await getAuthedGoogleClient(file.connectedAccount)
+    const drive = google.drive({ version: 'v3', auth })
+    const metadata = await drive.files.get({ fileId: file.providerFileId, fields: 'webViewLink,webContentLink' })
+    return res.json({ url: metadata.data.webViewLink ?? metadata.data.webContentLink })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+// --- Share Routes ---
+
+fileRouter.post('/:id/share', async (req: AuthRequest, res, next) => {
+  try {
+    const fileId = String(req.params.id)
+    const file = await prisma.file.findFirstOrThrow({ where: { id: fileId, userId: req.user!.id, status: 'active' } })
+    const existingShare_found = await prisma.fileShare.findFirst({ where: { fileId: file.id, userId: req.user!.id, enabled: true, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, orderBy: { createdAt: 'desc' } })
+    if (existingShare_found?.token) return res.json({ url: `${env.FRONTEND_URL}/public/files/${existingShare_found.token}`, shareId: existingShare_found.id })
+    if (existingShare_found) await prisma.fileShare.update({ where: { id: existingShare_found.id }, data: { enabled: false } })
+    const token = randomToken(32)
+    const share = await prisma.fileShare.create({ data: { fileId: file.id, userId: req.user!.id, token, tokenHash: hashToken(token) } })
+    return res.status(201).json({ url: `${env.FRONTEND_URL}/public/files/${token}`, shareId: share.id })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+fileRouter.delete('/:id/share', async (req: AuthRequest, res, next) => {
+  try {
+    const fileId = String(req.params.id)
+    await prisma.fileShare.updateMany({ where: { fileId, userId: req.user!.id, enabled: true }, data: { enabled: false } })
+    return res.json({ status: 'ok' })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+// ============================================================
+// GENERAL FILE ROUTES (Paling Bawah agar tidak tabrakan)
+// ============================================================
 
 fileRouter.get('/:id', async (req: AuthRequest, res, next) => {
   try {
@@ -261,116 +368,18 @@ fileRouter.patch('/:id', async (req: AuthRequest, res, next) => {
   }
 })
 
-fileRouter.post('/:id/share', async (req: AuthRequest, res, next) => {
-  try {
-    const fileId = String(req.params.id)
-    const file = await prisma.file.findFirstOrThrow({ where: { id: fileId, userId: req.user!.id, status: 'active' } })
-    const existingShare = await prisma.fileShare.findFirst({ where: { fileId: file.id, userId: req.user!.id, enabled: true, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, orderBy: { createdAt: 'desc' } })
-    if (existingShare?.token) return res.json({ url: `${env.FRONTEND_URL}/public/files/${existingShare.token}`, shareId: existingShare.id })
-    if (existingShare) await prisma.fileShare.update({ where: { id: existingShare.id }, data: { enabled: false } })
-    const token = randomToken(32)
-    const share = await prisma.fileShare.create({ data: { fileId: file.id, userId: req.user!.id, token, tokenHash: hashToken(token) } })
-    return res.status(201).json({ url: `${env.FRONTEND_URL}/public/files/${token}`, shareId: share.id })
-  } catch (error) {
-    return next(error)
-  }
-})
-
-fileRouter.delete('/:id/share', async (req: AuthRequest, res, next) => {
-  try {
-    const fileId = String(req.params.id)
-    await prisma.fileShare.updateMany({ where: { fileId, userId: req.user!.id, enabled: true }, data: { enabled: false } })
-    return res.json({ status: 'ok' })
-  } catch (error) {
-    return next(error)
-  }
-})
-
-fileRouter.post('/:id/preview-token', async (req: AuthRequest, res, next) => {
-  try {
-    const fileId = String(req.params.id)
-    const file = await prisma.file.findFirstOrThrow({ where: { id: fileId, userId: req.user!.id, status: 'active' } })
-    const token = randomToken(32)
-    await prisma.filePreviewToken.create({ data: { fileId: file.id, userId: req.user!.id, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + 10 * 60_000) } })
-    const path = `/files/preview/${token}`
-    return res.status(201).json({ path, url: `${req.protocol}://${req.get('host')}${path}` })
-  } catch (error) {
-    return next(error)
-  }
-})
-
-fileRouter.get('/:id/thumbnail-url', requireAuth, async (req: AuthRequest, res, next) => {
-  try {
-    const file = await prisma.file.findFirstOrThrow({
-      where: { id: String(req.params.id), userId: req.user!.id, status: 'active' },
-      include: { connectedAccount: true },
-    })
-    if (file.provider !== 'google_drive') {
-      return res.status(404).json({ code: 'NO_THUMBNAIL', message: 'Thumbnails only available for Google Drive files.' })
-    }
-    const auth = await getAuthedGoogleClient(file.connectedAccount)
-    const drive = google.drive({ version: 'v3', auth })
-    const metadata = await drive.files.get({
-      fileId: file.providerFileId,
-      fields: 'thumbnailLink',
-    })
-    const thumbnailLink = metadata.data.thumbnailLink
-    if (!thumbnailLink) {
-      return res.status(404).json({ code: 'NO_THUMBNAIL', message: 'Thumbnail not yet available for this file.' })
-    }
-    // Ganti ukuran thumbnail — default Google ~220px, kita minta 400px untuk kualitas cukup
-    const url = thumbnailLink.replace(/=s\d+$/, '=s400')
-    return res.status(200).json({ url })
-  } catch (error) {
-    return next(error)
-  }
-})
-
-fileRouter.get('/:id/view-url', async (req: AuthRequest, res, next) => {
-  try {
-    const fileId = String(req.params.id)
-    const file = await prisma.file.findFirstOrThrow({ where: { id: fileId, userId: req.user!.id }, include: { connectedAccount: true } })
-    if (file.provider === 's3') return res.json({ url: null })
-    const auth = await getAuthedGoogleClient(file.connectedAccount)
-    const drive = google.drive({ version: 'v3', auth })
-    const metadata = await drive.files.get({ fileId: file.providerFileId, fields: 'webViewLink,webContentLink' })
-    return res.json({ url: metadata.data.webViewLink ?? metadata.data.webContentLink })
-  } catch (error) {
-    return next(error)
-  }
-})
-
-fileRouter.get('/:id/download', async (req: AuthRequest, res, next) => {
-  try {
-    const fileId = String(req.params.id)
-    const file = await prisma.file.findFirstOrThrow({ where: { id: fileId, userId: req.user!.id }, include: { connectedAccount: true } })
-    return streamProviderFile(file, req.headers.range, res, { disposition: 'attachment' })
-  } catch (error) {
-    return next(error)
-  }
-})
-
 fileRouter.delete('/:id', async (req: AuthRequest, res, next) => {
   try {
     const fileId = String(req.params.id)
-    const file = await prisma.file.findFirstOrThrow({ where: { id: fileId, userId: req.user!.id }, include: { connectedAccount: true } })
-    
-    if (file.provider === 's3') await deleteS3Object(file)
+    const file_info = await prisma.file.findFirstOrThrow({ where: { id: fileId, userId: req.user!.id }, include: { connectedAccount: true } })
+    if (file_info.provider === 's3') await deleteS3Object(file_info)
     else {
-      const auth = await getAuthedGoogleClient(file.connectedAccount)
+      const auth = await getAuthedGoogleClient(file_info.connectedAccount)
       const drive = google.drive({ version: 'v3', auth })
-      await drive.files.delete({ fileId: file.providerFileId })
+      await drive.files.delete({ fileId: file_info.providerFileId })
     }
-    
-    await prisma.file.update({ where: { id: file.id }, data: { status: 'deleted', deletedAt: new Date() } })
-
-    // 1. Update Delta Lokal (Sangat Cepat) -> AWAIT ini
-    await applyQuotaDelta(file.connectedAccountId, -file.sizeBytes).catch(() => undefined)
-
-    // 2. Sync Resmi dari Google (Sangat Lambat) -> JANGAN AWAIT
-    // if (file.provider === 's3') syncS3Quota(file.connectedAccountId).catch(() => undefined)
-    // else syncGoogleQuota(file.connectedAccountId).catch(() => undefined)
-
+    await prisma.file.update({ where: { id: file_info.id }, data: { status: 'deleted', deletedAt: new Date() } })
+    await applyQuotaDelta(file_info.connectedAccountId, -file_info.sizeBytes).catch(() => undefined)
     return res.json({ status: 'ok' })
   } catch (error) {
     return next(error)
