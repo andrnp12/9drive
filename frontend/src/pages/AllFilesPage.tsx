@@ -559,16 +559,22 @@ export function AllFilesPage() {
 
   // TAMBAHKAN parameter 'file' di sini
 async function downloadFile(file: FileItem | null) {
-  // Gunakan parameter 'file', JANGAN gunakan 'activeFile'
   if (!file || !file.id) {
-    setMessage('No file selected for download.');
-    return;
+    setMessage('No file selected for download.')
+    return
   }
 
   try {
-    // Gunakan file.id dari parameter
     const data = await apiFetch<{ url: string }>(`/files/${file.id}/download-url`, { method: 'GET' })
-    window.location.assign(data.url)
+    
+    // Buat anchor element, jangan gunakan window.location.assign
+    const a = document.createElement('a')
+    a.href = data.url
+    a.download = file.name ?? ''
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    
     setContextMenu({ x: 0, y: 0, file: null })
   } catch (error) {
     console.error('Download error:', error)
