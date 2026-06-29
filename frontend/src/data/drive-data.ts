@@ -15,6 +15,7 @@ export type FileItem = {
   size: string
   sizeBytes?: string
   access: string
+  isShared?: boolean
   accountEmail?: string
   accountProvider?: string
   createdAt?: string

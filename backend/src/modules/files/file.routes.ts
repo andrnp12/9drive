@@ -65,37 +65,37 @@ fileRouter.get('/', async (req: AuthRequest, res, next) => {
       page: z.coerce.number().int().min(1).default(1),
       limit: z.coerce.number().int().min(1).max(200).default(100),
     }).parse(req.query)
-
     const skip = (query.page - 1) * query.limit
-
+    const where = {
+      userId: req.user!.id,
+      status: 'active',
+      ...(query.folderId ? { folderId: query.folderId } : {}),
+      ...(query.q ? { name: { contains: query.q } } : {}),
+    }
     const [files, total] = await Promise.all([
       prisma.file.findMany({
-        where: {
-          userId: req.user!.id,
-          status: 'active',
-          ...(query.folderId ? { folderId: query.folderId } : {}),
-          ...(query.q ? { name: { contains: query.q } } : {}),
-        },
+        where,
         include: {
           connectedAccount: { select: { id: true, email: true, provider: true } },
           folder: { select: { id: true, name: true } },
+          shares: {
+            where: { enabled: true, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+            select: { id: true },
+            take: 1,
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip,
         take: query.limit,
       }),
-      prisma.file.count({
-        where: {
-          userId: req.user!.id,
-          status: 'active',
-          ...(query.folderId ? { folderId: query.folderId } : {}),
-          ...(query.q ? { name: { contains: query.q } } : {}),
-        },
-      }),
+      prisma.file.count({ where }),
     ])
-
     return res.json({
-      files: files.map((file) => ({ ...file, sizeBytes: file.sizeBytes.toString() })),
+      files: files.map(({ shares, ...file }: { shares: { id: string }[], [key: string]: any }) => ({ 
+        ...file, 
+        sizeBytes: file.sizeBytes.toString(),
+        isShared: shares.length > 0,
+      })),
       pagination: {
         page: query.page,
         limit: query.limit,

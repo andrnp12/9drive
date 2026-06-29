@@ -147,6 +147,7 @@ export function FileGrid({
               <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-extrabold text-slate-950" title={file.name}>
                 {file.name}
               </h3>
+              {file.isShared ? <span className="mt-1 flex items-center gap-1 text-xs font-semibold text-blue-500"><Globe className="h-3 w-3" />Public</span> : null}
               <p className="mt-1 truncate text-xs text-slate-500">{file.date}</p>
               <div className="mt-2 flex flex-wrap gap-1.5 text-xs font-semibold text-slate-600">
                 <span className="rounded-full bg-slate-100 px-2 py-0.5">{file.size}</span>

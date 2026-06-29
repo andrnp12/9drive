@@ -24,6 +24,7 @@ export function FileTable({ files, mode = 'default', selectedFileIds = new Set<s
                 <div className="mt-0.5 shrink-0">{mode === 'starred' ? <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" /> : <FileIcon kind={file.kind} />}</div>
                 <div className="min-w-0 flex-1 overflow-hidden">
                   <h3 className="line-clamp-2 break-all text-sm font-extrabold leading-snug text-slate-950" title={file.name}>{file.name}</h3>
+                  {file.isShared ? <span className="mt-1 flex items-center gap-1 text-xs font-semibold text-blue-500"><Globe className="h-3 w-3" />Public</span> : null}
                   <p className="mt-1 truncate text-xs text-slate-500">{meta}</p>
                   <div className="mt-3 flex min-w-0 flex-wrap gap-2 text-xs font-semibold text-slate-600">
                     <span className="rounded-full bg-slate-100 px-2.5 py-1">{file.size}</span>
@@ -60,6 +61,7 @@ export function FileTable({ files, mode = 'default', selectedFileIds = new Set<s
                 <span className="flex min-w-0 items-center gap-3">
                   {mode === 'starred' ? <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" /> : <FileIcon kind={file.kind} />}
                   <span className="truncate">{file.name}</span>
+                  {file.isShared ? <Globe className="h-3.5 w-3.5 shrink-0 text-blue-500" title="Shared publicly" /> : null}
                 </span>
               </td>
               {mode === 'shared' ? <td className="py-4 text-slate-500">{file.owner}</td> : null}
