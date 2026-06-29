@@ -99,7 +99,6 @@ export function AllFilesPage() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
-  const [setShareDirectUrl] = useState('') // tambah ini
   const [copiedShareLink, setCopiedShareLink] = useState(false)
   const [previewUrl, setPreviewUrl] = useState('')
   const [previewError, setPreviewError] = useState('')
@@ -558,7 +557,7 @@ export function AllFilesPage() {
     }
   }
 
- async function downloadFile(file: FileItem | null) {
+  async function downloadFile(file: FileItem | null) {
   if (!file || !file.id) {
     setMessage('No file selected for download.')
     return
@@ -650,14 +649,13 @@ export function AllFilesPage() {
 }
 
   async function shareFile() {
-  if (!activeFile?.id) return
-  const data = await apiFetch<{ url: string; directUrl?: string }>(`/files/${activeFile.id}/share`, { method: 'POST' })
-  setShareUrl(data.url)
-  setShareDirectUrl(data.directUrl ?? '') // tambah ini
-  setCopiedShareLink(false)
-  setShareOpen(true)
-  setContextMenu({ x: 0, y: 0, file: null })
-}
+    if (!activeFile?.id) return
+    const data = await apiFetch<{ url: string }>(`/files/${activeFile.id}/share`, { method: 'POST' })
+    setShareUrl(data.url)
+    setCopiedShareLink(false)
+    setShareOpen(true)
+    setContextMenu({ x: 0, y: 0, file: null })
+  }
 
   async function inviteToFile() {
     if (!activeFile?.id) return
