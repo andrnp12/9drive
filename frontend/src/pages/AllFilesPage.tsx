@@ -99,6 +99,7 @@ export function AllFilesPage() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
+  const [setShareDirectUrl] = useState('') // tambah ini
   const [copiedShareLink, setCopiedShareLink] = useState(false)
   const [previewUrl, setPreviewUrl] = useState('')
   const [previewError, setPreviewError] = useState('')
@@ -557,32 +558,24 @@ export function AllFilesPage() {
     }
   }
 
-  // TAMBAHKAN parameter 'file' di sini
-async function downloadFile(file: FileItem | null) {
+ async function downloadFile(file: FileItem | null) {
   if (!file || !file.id) {
     setMessage('No file selected for download.')
     return
   }
 
   try {
-    const data = await apiFetch<{ url: string }>(`/files/${file.id}/download-url`, { method: 'GET' })
+    const data = await apiFetch<{ url: string; directUrl?: string }>(`/files/${file.id}/download-url`, { method: 'GET' })
+    const url = data.directUrl ?? data.url
     
     const a = document.createElement('a')
-    a.href = data.url
+    a.href = url
     a.download = file.name ?? ''
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     
     setContextMenu({ x: 0, y: 0, file: null })
-    
-    // Tambah ini sementara
-    console.log('Download triggered, files state saat ini:', files.length)
-    setTimeout(() => {
-      console.log('Files state 3 detik setelah download:', files.length)
-      loadFiles().then(() => console.log('loadFiles selesai')).catch((e) => console.error('loadFiles error:', e))
-    }, 3000)
-    
   } catch (error) {
     console.error('Download error:', error)
     setMessage(error instanceof Error ? error.message : 'Failed to generate download link')
@@ -657,13 +650,14 @@ async function downloadFile(file: FileItem | null) {
 }
 
   async function shareFile() {
-    if (!activeFile?.id) return
-    const data = await apiFetch<{ url: string }>(`/files/${activeFile.id}/share`, { method: 'POST' })
-    setShareUrl(data.url)
-    setCopiedShareLink(false)
-    setShareOpen(true)
-    setContextMenu({ x: 0, y: 0, file: null })
-  }
+  if (!activeFile?.id) return
+  const data = await apiFetch<{ url: string; directUrl?: string }>(`/files/${activeFile.id}/share`, { method: 'POST' })
+  setShareUrl(data.url)
+  setShareDirectUrl(data.directUrl ?? '') // tambah ini
+  setCopiedShareLink(false)
+  setShareOpen(true)
+  setContextMenu({ x: 0, y: 0, file: null })
+}
 
   async function inviteToFile() {
     if (!activeFile?.id) return

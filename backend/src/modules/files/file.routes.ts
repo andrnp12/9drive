@@ -249,13 +249,13 @@ fileRouter.get('/:id/download-url', async (req: AuthRequest, res, next) => {
     }
 
     if (file.provider === 'google_drive') {
-      // Cek apakah file punya share aktif (berarti sudah public di Google)
       const activeShare = await prisma.fileShare.findFirst({
         where: { fileId: file.id, enabled: true, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }
       })
-
+      console.log('🔍 Active share found:', !!activeShare, 'for file:', file.id)
       if (activeShare) {
         const directUrl = `https://drive.google.com/uc?export=download&id=${file.providerFileId}&confirm=1`
+        console.log('✅ Returning direct URL:', directUrl)
         return res.json({ url: directUrl })
       }
     }
@@ -334,30 +334,31 @@ fileRouter.post('/:id/share', async (req: AuthRequest, res, next) => {
       include: { connectedAccount: true }
     })
 
+    // Set public DULU sebelum cek existing share
+    if (file.provider === 'google_drive') {
+      const auth = await getAuthedGoogleClient(file.connectedAccount)
+      const drive = google.drive({ version: 'v3', auth })
+      console.log('🔓 Setting file public:', file.providerFileId)
+      await drive.permissions.create({
+        fileId: file.providerFileId,
+        requestBody: { role: 'reader', type: 'anyone' },
+      }).catch((e) => console.error('Permission error:', e))
+    }
+
     const existingShare = await prisma.fileShare.findFirst({ 
       where: { fileId: file.id, userId: req.user!.id, enabled: true, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, 
       orderBy: { createdAt: 'desc' } 
     })
+
     if (existingShare?.token) return res.json({ 
       url: `${env.FRONTEND_URL}/public/files/${existingShare.token}`,
-      directUrl: `https://drive.google.com/uc?export=download&id=${file.providerFileId}&confirm=1`,
+      directUrl: file.provider === 'google_drive' 
+        ? `https://drive.google.com/uc?export=download&id=${file.providerFileId}&confirm=1`
+        : null,
       shareId: existingShare.id 
     })
 
     if (existingShare) await prisma.fileShare.update({ where: { id: existingShare.id }, data: { enabled: false } })
-
-    // Set file jadi public di Google Drive
-    if (file.provider === 'google_drive') {
-      const auth = await getAuthedGoogleClient(file.connectedAccount)
-      const drive = google.drive({ version: 'v3', auth })
-      await drive.permissions.create({
-        fileId: file.providerFileId,
-        requestBody: {
-          role: 'reader',
-          type: 'anyone',
-        },
-      })
-    }
 
     const token = randomToken(32)
     const share = await prisma.fileShare.create({ 
