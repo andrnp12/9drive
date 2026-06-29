@@ -249,13 +249,13 @@ fileRouter.get('/:id/download-url', async (req: AuthRequest, res, next) => {
     }
 
     if (file.provider === 'google_drive') {
+      // Cek apakah file punya share aktif (berarti sudah public di Google)
       const activeShare = await prisma.fileShare.findFirst({
         where: { fileId: file.id, enabled: true, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }
       })
-      console.log('🔍 Active share found:', !!activeShare, 'for file:', file.id)
+
       if (activeShare) {
         const directUrl = `https://drive.google.com/uc?export=download&id=${file.providerFileId}&confirm=1`
-        console.log('✅ Returning direct URL:', directUrl)
         return res.json({ url: directUrl })
       }
     }
@@ -266,7 +266,7 @@ fileRouter.get('/:id/download-url', async (req: AuthRequest, res, next) => {
         fileId: file.id, 
         userId: userId, 
         tokenHash: hashToken(token), 
-        expiresAt: new Date(Date.now() + 2 * 60 * 60_000) // 2 hours
+        expiresAt: new Date(Date.now() + 60 * 60_000) // 1 jam
       } 
     })
 

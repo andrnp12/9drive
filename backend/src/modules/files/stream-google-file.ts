@@ -33,6 +33,7 @@ function normalizeHeaders(headers: Headers | Record<string, string>) {
 
 export async function streamGoogleFile(file: FileWithAccount, range: string | undefined, res: Response, options: StreamOptions = {}) {
   const auth = await getAuthedGoogleClient(file.connectedAccount)
+  await auth.getAccessToken() // refresh Google token kalau sudah expired
   const headers = normalizeHeaders(await auth.getRequestHeaders())
   const exportTarget = (options.disposition === 'inline' ? googlePreviewExportMimeTypes : googleDownloadExportMimeTypes)[file.mimeType]
   const responseMimeType = exportTarget?.mimeType ?? file.mimeType
