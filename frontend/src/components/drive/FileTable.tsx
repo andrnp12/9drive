@@ -61,7 +61,11 @@ export function FileTable({ files, mode = 'default', selectedFileIds = new Set<s
                 <span className="flex min-w-0 items-center gap-3">
                   {mode === 'starred' ? <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" /> : <FileIcon kind={file.kind} />}
                   <span className="truncate">{file.name}</span>
-                  {file.isShared ? <Globe className="h-3.5 w-3.5 shrink-0 text-blue-500" title="Shared publicly" /> : null}
+                  {file.isShared ? (
+                    <span title="Shared publicly">
+                      <Globe className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                    </span>
+                  ) : null}
                 </span>
               </td>
               {mode === 'shared' ? <td className="py-4 text-slate-500">{file.owner}</td> : null}
