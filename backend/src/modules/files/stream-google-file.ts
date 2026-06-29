@@ -1,4 +1,5 @@
 import type { Response } from 'express'
+import { Readable } from 'stream'
 import type { ConnectedAccount, File } from '@prisma/client'
 import { getAuthedGoogleClient } from '../google/google.service.js'
 
@@ -45,35 +46,29 @@ export async function streamGoogleFile(file: FileWithAccount, range: string | un
       ...(range && !exportTarget ? { Range: range } : {}),
     },
   })
-
   if (!response.ok) {
     const message = await response.text().catch(() => response.statusText)
     return res.status(response.status).json({ code: 'GOOGLE_FILE_STREAM_FAILED', message: message || response.statusText })
   }
-
   res.status(response.status)
   res.setHeader('Content-Type', responseMimeType)
   res.setHeader('Accept-Ranges', 'bytes')
   if (options.disposition) res.setHeader('Content-Disposition', contentDisposition(options.disposition, responseFileName))
-
   const contentLength = response.headers.get('content-length')
   const contentRange = response.headers.get('content-range')
   if (contentLength) res.setHeader('Content-Length', contentLength)
   if (contentRange) res.setHeader('Content-Range', contentRange)
-
   if (!response.body) {
     res.end()
     return
   }
-  const reader = response.body.getReader()
-  async function pump(): Promise<void> {
-    const { done, value } = await reader.read()
-    if (done) {
-      res.end()
-      return
-    }
-    res.write(Buffer.from(value))
-    return pump()
-  }
-  return pump()
+
+  const nodeStream = Readable.fromWeb(response.body as any)
+  
+  res.on('close', () => {
+    nodeStream.destroy()
+  })
+  
+  nodeStream.pipe(res)
+  nodeStream.on('error', () => res.end())
 }

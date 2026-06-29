@@ -169,8 +169,21 @@ authRouter.post('/google/exchange', async (req, res, next) => {
 authRouter.post('/refresh', async (req, res, next) => {
   try {
     const body = refreshSchema.parse(req.body)
-    const session = await prisma.userSession.findFirst({ where: { refreshTokenHash: hashToken(body.refreshToken), revokedAt: null, expiresAt: { gt: new Date() } } })
+    const session = await prisma.userSession.findFirst({ 
+      where: { 
+        refreshTokenHash: hashToken(body.refreshToken), 
+        revokedAt: null, 
+        expiresAt: { gt: new Date() } 
+      } 
+    })
     if (!session) return res.status(401).json({ code: 'AUTH_SESSION_EXPIRED', message: 'Refresh token expired.' })
+
+    // Perpanjang session agar access token baru yang digenerate tetap valid
+    await prisma.userSession.update({
+      where: { id: session.id },
+      data: { expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } // perpanjang 7 hari
+    })
+
     return res.json({ accessToken: signAccessToken({ sub: session.userId, sid: session.id }) })
   } catch (error) {
     return next(error)
