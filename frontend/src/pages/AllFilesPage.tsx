@@ -99,6 +99,7 @@ export function AllFilesPage() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
+  const [shareDirectUrl, setShareDirectUrl] = useState<string | null>(null)
   const [copiedShareLink, setCopiedShareLink] = useState(false)
   const [previewUrl, setPreviewUrl] = useState('')
   const [previewError, setPreviewError] = useState('')
@@ -648,10 +649,11 @@ export function AllFilesPage() {
   }
 }
 
-  async function shareFile() {
+    async function shareFile() {
     if (!activeFile?.id) return
-    const data = await apiFetch<{ url: string }>(`/files/${activeFile.id}/share`, { method: 'POST' })
+    const data = await apiFetch<{ url: string; directUrl?: string | null }>(`/files/${activeFile.id}/share`, { method: 'POST' })
     setShareUrl(data.url)
+    setShareDirectUrl(data.directUrl ?? null) // tambah ini
     setCopiedShareLink(false)
     setShareOpen(true)
     setContextMenu({ x: 0, y: 0, file: null })
@@ -822,13 +824,23 @@ export function AllFilesPage() {
       <DummyModal open={deleteOpen} title={selectedFileIds.size > 0 ? 'Delete Files' : 'Delete File'} description={selectedFileIds.size > 0 ? `Delete ${selectedFileIds.size} files from Google Drive?` : `Delete ${activeFile?.name ?? 'file'} from Google Drive?`} onClose={() => setDeleteOpen(false)}><div className="flex justify-end gap-3"><Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button><Button variant="danger" onClick={deleteFile}>Delete</Button></div></DummyModal>
       <DummyModal open={shareOpen} title="Share Link" description={activeFile?.name ?? ''} onClose={() => setShareOpen(false)}>
         <div className="grid gap-4">
-          <Input value={shareUrl} readOnly />
+          <div className="grid gap-2">
+            <p className="text-sm font-semibold text-slate-700">9Drive Share Link</p>
+            <Input value={shareUrl} readOnly />
+          </div>
+          {shareDirectUrl ? (
+            <div className="grid gap-2">
+              <p className="text-sm font-semibold text-slate-700">Direct Google Drive Link</p>
+              <Input value={shareDirectUrl} readOnly />
+            </div>
+          ) : null}
           <div className="flex justify-end gap-3">
             <Button variant="danger" onClick={async () => {
               if (!activeFile?.id) return
               await apiFetch(`/files/${activeFile.id}/share`, { method: 'DELETE' })
               setShareOpen(false)
               setShareUrl('')
+              setShareDirectUrl(null)
               setMessage('Share link removed. File is now private.')
             }}>
               <Trash2 className="h-4 w-4" />
