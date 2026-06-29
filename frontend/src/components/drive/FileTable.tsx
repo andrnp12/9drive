@@ -1,4 +1,4 @@
-import { MoreVertical, Star } from 'lucide-react'
+import { Globe, MoreVertical, Star } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import { AvatarStack } from '@/components/drive/AvatarStack'
 import { FileIcon } from '@/components/drive/FileIcon'

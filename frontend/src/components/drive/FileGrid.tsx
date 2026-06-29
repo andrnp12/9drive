@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MoreVertical } from 'lucide-react'
+import { Globe, MoreVertical } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import { Card } from '@/components/ui/card'
 import { FileIcon } from '@/components/drive/FileIcon'
