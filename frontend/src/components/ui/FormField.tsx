@@ -563,7 +563,7 @@ export function DynamicForm({
   submitLabel,
   cancelLabel,
 }: DynamicFormProps) {
-  const { getConfig, getFieldLabel, t } = useFormConfig();
+  const { getConfig, t } = useFormConfig();
   const [formData, setFormData] =
     useState<Record<string, unknown>>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});

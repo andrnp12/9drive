@@ -92,7 +92,7 @@ export interface FormConfigMap {
   [key: string]: FormConfig;
 }
 
-const formConfigs = {
+const formConfigs: FormConfigMap = {
   sharedPage: {
     id: "sharedPage",
     title: "Shared Resources",
