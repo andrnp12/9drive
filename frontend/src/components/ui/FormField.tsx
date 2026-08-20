@@ -247,11 +247,7 @@ export const FormField = forwardRef<
       case "button":
       case "submit": {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const {
-          children: _children,
-          onClick: _onClick,
-          ...buttonProps
-        } = props;
+        const { onClick: _onClick, ...buttonProps } = props;
         return (
           <Button
             // Button doesn't forward ref, so we don't pass ref
