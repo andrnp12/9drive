@@ -250,7 +250,7 @@ function Sidebar({
                 "relative inline-flex h-11 rounded-xl px-4 text-sm font-semibold text-[var(--color-text-quaternary)] opacity-70 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
                 "focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-2 focus:ring-offset-[var(--color-card-bg)]",
                 isCollapsed
-                  ? "justify-center w-full px-0"
+                  ? "items-center justify-center w-full px-0"
                   : "items-center gap-2 w-full justify-start",
               )}
               style={{
@@ -264,7 +264,9 @@ function Sidebar({
                 className={cn(
                   iconContainerClass,
                   "bg-transparent",
-                  isCollapsed ? "w-11 h-11 justify-center" : "shrink-0",
+                  isCollapsed
+                    ? "w-11 h-11 items-center justify-center"
+                    : "shrink-0",
                 )}
               >
                 <item.icon className={iconClass} />
@@ -285,7 +287,7 @@ function Sidebar({
                   "relative inline-flex h-11 rounded-xl px-4 text-sm font-semibold transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
                   "focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-2 focus:ring-offset-[var(--color-card-bg)]",
                   isCollapsed
-                    ? "justify-center w-full px-0"
+                    ? "items-center justify-center w-full px-0"
                     : "items-center gap-2 w-full justify-start",
                   isActive
                     ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] shadow-sm"
@@ -305,7 +307,9 @@ function Sidebar({
                 className={cn(
                   iconContainerClass,
                   "bg-transparent",
-                  isCollapsed ? "w-11 h-11 justify-center" : "shrink-0",
+                  isCollapsed
+                    ? "w-11 h-11 items-center justify-center"
+                    : "shrink-0",
                 )}
               >
                 <item.icon className={iconClass} />
