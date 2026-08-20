@@ -5,6 +5,7 @@ import { FileTable } from "@/components/drive/FileTable";
 import { MetricCard } from "@/components/drive/MetricCard";
 import { PageHeader } from "@/components/drive/PageHeader";
 import { archivedFiles } from "@/data/drive-data";
+import { FormSection } from "@/components/ui/FormField";
 
 export function ArchivedPage() {
   return (
@@ -14,14 +15,13 @@ export function ArchivedPage() {
         description="Older files kept out of active workspace."
         actions={
           <>
-            <Button variant="outline">
-              <RotateCcw className="h-4 w-4" />
-              Restore
-            </Button>
-            <Button variant="danger">
-              <Trash2 className="h-4 w-4" />
-              Delete Permanently
-            </Button>
+            <FormSection
+              formId="archivedPage"
+              sectionId="restoreDelete"
+              disabled={false}
+              showLabels={false}
+              showHelpText={false}
+            />
           </>
         }
       />
