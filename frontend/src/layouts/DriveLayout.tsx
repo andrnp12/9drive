@@ -274,7 +274,9 @@ function Sidebar({
           >
             <span className="flex items-center gap-3">
               <span className={cn("h-4 w-4 rounded", color)} />
-              {label}
+              <span className="text-[var(--color-text-secondary)]">
+                {label}
+              </span>
             </span>
             <span className="font-semibold text-[var(--color-text-primary)]">
               {value}
@@ -282,7 +284,7 @@ function Sidebar({
           </div>
         ))}
         <div className="mt-4 border-t border-[var(--color-card-border)] pt-4 text-sm">
-          <p>
+          <p className="text-[var(--color-text-secondary)]">
             <b className="text-[var(--color-text-primary)]">
               {formatBytes(storage?.usedBytes)}
             </b>{" "}
