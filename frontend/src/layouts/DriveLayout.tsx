@@ -580,7 +580,6 @@ export function DriveLayout() {
           <Sidebar
             storage={storage}
             breakdown={breakdown}
-            onLogout={logout}
             isCollapsed={isSidebarCollapsed}
             onToggleCollapse={toggleSidebar}
             onExpand={expandSidebar}
