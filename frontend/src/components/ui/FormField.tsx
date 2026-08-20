@@ -88,7 +88,7 @@ export const FormField = forwardRef<
     const disabled = disabledProp || field.disabled;
     const required = field.required || validation?.required;
     const variant = field.variant || "default";
-    const size = field.size || "default";
+    const fieldSize = (field.size || "default") as "default" | "sm" | "icon";
 
     // Determine current value from formData or defaultValue
     const currentValue = formData[fieldName] ?? defaultValue ?? "";
@@ -174,8 +174,8 @@ export const FormField = forwardRef<
               className={cn(
                 "rounded-xl border border-[var(--color-input-border)] bg-[var(--color-input-bg)] px-4 py-3 text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent transition-all",
                 disabled && "opacity-50 cursor-not-allowed",
-                size === "sm" && "px-3 py-2 text-sm",
-                size === "icon" && "p-2",
+                fieldSize === "sm" && "px-3 py-2 text-sm",
+                fieldSize === "icon" && "p-2",
               )}
               {...props}
             >
@@ -233,7 +233,7 @@ export const FormField = forwardRef<
               className={cn(
                 "min-h-[100px] rounded-xl border border-[var(--color-input-border)] bg-[var(--color-input-bg)] px-4 py-3 text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent transition-all resize-y",
                 disabled && "opacity-50 cursor-not-allowed",
-                size === "sm" && "px-3 py-2 text-sm",
+                fieldSize === "sm" && "px-3 py-2 text-sm",
               )}
               {...props}
             />
@@ -250,8 +250,9 @@ export const FormField = forwardRef<
       case "submit": {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { onClick: _onClick, ...buttonProps } = props;
-        // Cast size to Button size type
-        const buttonSize = (size as "default" | "sm" | "icon") || "default";
+        // Cast fieldSize to Button size type
+        const buttonSize =
+          (fieldSize as "default" | "sm" | "icon") || "default";
         return (
           <Button
             // Button doesn't forward ref, so we don't pass ref
@@ -376,7 +377,7 @@ export const FormField = forwardRef<
               className={cn(
                 "rounded-xl border border-[var(--color-input-border)] bg-[var(--color-input-bg)] px-4 py-3 text-[var(--color-text-primary)] placeholder-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-brand-primary)] focus:border-transparent transition-all",
                 disabled && "opacity-50 cursor-not-allowed",
-                size === "sm" && "px-3 py-2 text-sm",
+                fieldSize === "sm" && "px-3 py-2 text-sm",
               )}
               {...props}
             />
