@@ -260,7 +260,13 @@ function Sidebar({
               }}
               aria-label={item.label}
             >
-              <span className={cn(iconContainerClass, "bg-transparent")}>
+              <span
+                className={cn(
+                  iconContainerClass,
+                  "bg-transparent",
+                  isCollapsed ? "w-full justify-center" : "shrink-0",
+                )}
+              >
                 <item.icon className={iconClass} />
               </span>
               {!isCollapsed && (
@@ -295,7 +301,13 @@ function Sidebar({
               aria-label={item.label}
               title={isCollapsed ? item.label : undefined}
             >
-              <span className={cn(iconContainerClass, "bg-transparent")}>
+              <span
+                className={cn(
+                  iconContainerClass,
+                  "bg-transparent",
+                  isCollapsed ? "w-full justify-center" : "shrink-0",
+                )}
+              >
                 <item.icon className={iconClass} />
               </span>
               {!isCollapsed && (
