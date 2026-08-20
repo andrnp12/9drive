@@ -85,22 +85,28 @@ function RepoUpdatesDropdown({
   error: string;
 }) {
   return (
-    <div className="absolute right-0 top-12 z-50 w-[min(calc(100vw-2rem),24rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/15">
-      <div className="border-b border-slate-200 px-4 py-3">
-        <p className="text-sm font-extrabold text-slate-950">
+    <div className="absolute right-0 top-12 z-50 w-[min(calc(100vw-2rem),24rem)] overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] shadow-2xl shadow-[var(--color-shadow-xl)]">
+      <div className="border-b border-[var(--color-card-border)] px-4 py-3">
+        <p className="text-sm font-extrabold text-[var(--color-text-primary)]">
           Repository Updates
         </p>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-[var(--color-text-tertiary)]">
           Latest commits from zenhosta/9drive
         </p>
       </div>
       <div className="max-h-96 overflow-y-auto p-2">
         {loading ? (
-          <p className="p-4 text-sm text-slate-500">Loading updates...</p>
+          <p className="p-4 text-sm text-[var(--color-text-tertiary)]">
+            Loading updates...
+          </p>
         ) : null}
-        {error ? <p className="p-4 text-sm text-red-600">{error}</p> : null}
+        {error ? (
+          <p className="p-4 text-sm text-[var(--color-text-danger)]">{error}</p>
+        ) : null}
         {!loading && !error && updates.length === 0 ? (
-          <p className="p-4 text-sm text-slate-500">No updates found.</p>
+          <p className="p-4 text-sm text-[var(--color-text-tertiary)]">
+            No updates found.
+          </p>
         ) : null}
         {!loading && !error
           ? updates.map((update) => (
@@ -109,17 +115,17 @@ function RepoUpdatesDropdown({
                 href={update.url}
                 target="_blank"
                 rel="noreferrer"
-                className="block rounded-xl p-3 transition hover:bg-slate-50"
+                className="block rounded-xl p-3 transition hover:bg-[var(--color-bg-hover)]"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <p className="line-clamp-2 min-w-0 text-sm font-bold leading-snug text-slate-950">
+                  <p className="line-clamp-2 min-w-0 text-sm font-bold leading-snug text-[var(--color-text-primary)]">
                     {update.title}
                   </p>
-                  <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                  <span className="shrink-0 rounded-full bg-[var(--color-bg-tertiary)] px-2 py-0.5 text-[11px] font-bold text-[var(--color-text-secondary)]">
                     {update.sha}
                   </span>
                 </div>
-                <p className="mt-1 truncate text-xs text-slate-500">
+                <p className="mt-1 truncate text-xs text-[var(--color-text-tertiary)]">
                   {update.author} • {update.date}
                 </p>
               </a>
@@ -130,7 +136,7 @@ function RepoUpdatesDropdown({
         href="https://github.com/zenhosta/9drive"
         target="_blank"
         rel="noreferrer"
-        className="block border-t border-slate-200 px-4 py-3 text-sm font-bold text-blue-600 hover:bg-blue-50"
+        className="block border-t border-[var(--color-card-border)] px-4 py-3 text-sm font-bold text-[var(--color-text-brand)] hover:bg-[var(--color-bg-brand-subtle)]"
       >
         View repository
       </a>
@@ -169,25 +175,29 @@ function Sidebar({
   }, [user?.email]);
 
   return (
-    <aside className="flex h-full w-72 flex-col border-slate-200 bg-white p-5 lg:border-r">
+    <aside className="flex h-full w-72 flex-col border-[var(--color-card-border)] bg-[var(--color-card-bg)] p-5 lg:border-r">
       <div className="flex items-center gap-3 pb-5">
         <BrandLogo />
-        <span className="text-2xl font-extrabold tracking-tight">9Drive</span>
+        <span className="text-2xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
+          9Drive
+        </span>
       </div>
 
-      <div className="flex items-center gap-3 border-y border-slate-200 py-5">
+      <div className="flex items-center gap-3 border-y border-[var(--color-card-border)] py-5">
         <img
           src={profileImageUrl}
           alt="User avatar"
           className="h-10 w-10 rounded-full object-cover"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-bold">{user?.name ?? "User"}</p>
-          <p className="truncate text-sm text-slate-500">
+          <p className="truncate font-bold text-[var(--color-text-primary)]">
+            {user?.name ?? "User"}
+          </p>
+          <p className="truncate text-sm text-[var(--color-text-tertiary)]">
             {user?.email ?? "Loading..."}
           </p>
         </div>
-        <MoreVertical className="h-5 w-5 text-slate-500" />
+        <MoreVertical className="h-5 w-5 text-[var(--color-text-tertiary)]" />
       </div>
 
       <nav className="mt-6 grid gap-2">
@@ -197,7 +207,7 @@ function Sidebar({
               key={item.label}
               type="button"
               disabled
-              className="inline-flex h-11 cursor-not-allowed items-center gap-2 rounded-xl px-4 text-sm font-semibold text-slate-400 opacity-70"
+              className="inline-flex h-11 cursor-not-allowed items-center gap-2 rounded-xl px-4 text-sm font-semibold text-[var(--color-text-quaternary)] opacity-70"
             >
               <item.icon className="h-5 w-5" />
               {item.label}
@@ -211,8 +221,8 @@ function Sidebar({
                 cn(
                   "inline-flex h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-all",
                   isActive
-                    ? "bg-slate-100 text-slate-950 shadow-sm"
-                    : "text-slate-700 hover:bg-slate-100",
+                    ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] shadow-sm"
+                    : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]",
                 )
               }
             >
@@ -223,7 +233,7 @@ function Sidebar({
         )}
       </nav>
 
-      <div className="mt-5 border-t border-slate-200 pt-5">
+      <div className="mt-5 border-t border-[var(--color-card-border)] pt-5">
         <NavLink
           to="/settings"
           onClick={onNavigate}
@@ -231,8 +241,8 @@ function Sidebar({
             cn(
               "inline-flex h-11 w-full items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-all",
               isActive
-                ? "bg-slate-100 text-slate-950 shadow-sm"
-                : "text-slate-700 hover:bg-slate-100",
+                ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] shadow-sm"
+                : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]",
             )
           }
         >
@@ -246,8 +256,8 @@ function Sidebar({
             cn(
               "mt-2 inline-flex h-11 w-full items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-all",
               isActive
-                ? "bg-slate-100 text-slate-950 shadow-sm"
-                : "text-slate-700 hover:bg-slate-100",
+                ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] shadow-sm"
+                : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]",
             )
           }
         >
@@ -266,19 +276,24 @@ function Sidebar({
               <span className={cn("h-4 w-4 rounded", color)} />
               {label}
             </span>
-            <span className="font-semibold">{value}</span>
+            <span className="font-semibold text-[var(--color-text-primary)]">
+              {value}
+            </span>
           </div>
         ))}
-        <div className="mt-4 border-t border-slate-200 pt-4 text-sm">
+        <div className="mt-4 border-t border-[var(--color-card-border)] pt-4 text-sm">
           <p>
-            <b>{formatBytes(storage?.usedBytes)}</b> used of{" "}
-            <span className="text-slate-500">
+            <b className="text-[var(--color-text-primary)]">
+              {formatBytes(storage?.usedBytes)}
+            </b>{" "}
+            used of{" "}
+            <span className="text-[var(--color-text-tertiary)]">
               {formatBytes(storage?.totalBytes)}
             </span>
           </p>
-          <div className="my-3 h-1.5 rounded-full bg-slate-100">
+          <div className="my-3 h-1.5 rounded-full bg-[var(--color-bg-tertiary)]">
             <div
-              className="h-full rounded-full bg-blue-600"
+              className="h-full rounded-full bg-[var(--color-bg-brand)]"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -421,8 +436,8 @@ export function DriveLayout() {
   }, []);
 
   return (
-    <main className="min-h-screen w-full overflow-x-hidden bg-white">
-      <div className="flex min-h-screen w-full flex-col bg-white lg:h-screen lg:overflow-hidden lg:flex-row">
+    <main className="min-h-screen w-full overflow-x-hidden bg-[var(--color-bg-primary)]">
+      <div className="flex min-h-screen w-full flex-col bg-[var(--color-bg-primary)] lg:h-screen lg:overflow-hidden lg:flex-row">
         <div className="hidden lg:block lg:h-screen lg:shrink-0">
           <Sidebar
             user={user}
@@ -433,14 +448,14 @@ export function DriveLayout() {
         </div>
         <div
           className={cn(
-            "fixed inset-0 z-40 bg-slate-950/40 transition-opacity lg:hidden",
+            "fixed inset-0 z-40 bg-[var(--color-bg-overlay-strong)] transition-opacity lg:hidden",
             sidebarOpen ? "opacity-100" : "pointer-events-none opacity-0",
           )}
           onClick={() => setSidebarOpen(false)}
         />
         <div
           className={cn(
-            "fixed inset-y-0 left-0 z-50 transform bg-white shadow-2xl transition-transform duration-300 ease-out lg:hidden",
+            "fixed inset-y-0 left-0 z-50 transform bg-[var(--color-card-bg)] shadow-2xl transition-transform duration-300 ease-out lg:hidden",
             sidebarOpen ? "translate-x-0" : "-translate-x-full",
           )}
         >
@@ -476,7 +491,7 @@ export function DriveLayout() {
                 </Button>
                 <div className="flex min-w-0 items-center gap-2">
                   <BrandLogo className="h-9 w-9 shrink-0" />
-                  <span className="truncate text-xl font-extrabold tracking-tight">
+                  <span className="truncate text-xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
                     9Drive
                   </span>
                 </div>
@@ -492,7 +507,7 @@ export function DriveLayout() {
                 >
                   <Bell className="h-5 w-5" />
                   {!updatesOpen ? (
-                    <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-blue-600" />
+                    <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[var(--color-bg-brand)]" />
                   ) : null}
                 </Button>
                 {updatesOpen ? (
@@ -508,7 +523,7 @@ export function DriveLayout() {
               onSubmit={searchFiles}
               className="relative w-full min-w-0 flex-1 xl:max-w-xl"
             >
-              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
               <Input
                 value={searchValue}
                 onChange={(event) => setSearchValue(event.target.value)}
@@ -517,7 +532,7 @@ export function DriveLayout() {
               />
               <button
                 type="submit"
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]"
                 aria-label="Search files"
               >
                 <SlidersHorizontal className="h-5 w-5" />
@@ -535,7 +550,7 @@ export function DriveLayout() {
               >
                 <Bell className="h-5 w-5" />
                 {!updatesOpen ? (
-                  <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-blue-600" />
+                  <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[var(--color-bg-brand)]" />
                 ) : null}
               </Button>
               {updatesOpen ? (
