@@ -484,155 +484,210 @@ export function DriveLayout() {
         </div>
         <section className="min-w-0 flex-1 p-4 sm:p-8 lg:h-screen lg:overflow-y-auto lg:p-10">
           <header className="flex w-full min-w-0 flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex items-center justify-between gap-3 lg:hidden">
-              <div className="flex min-w-0 items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  aria-label="Open sidebar"
-                  onClick={() => setSidebarOpen(true)}
-                >
-                  <Menu className="h-5 w-5" />
-                </Button>
-                <div className="flex min-w-0 items-center gap-2">
-                  <BrandLogo className="h-9 w-9 shrink-0" />
-                  <span className="truncate text-xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
-                    9Drive
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    aria-label="Upload"
-                    onClick={() =>
-                      window.dispatchEvent(new CustomEvent("9drive:upload"))
-                    }
+            {/* Determine if we're on the All Files page */}
+            {(() => {
+              const isAllFiles = location.pathname === "/all-files";
+
+              return (
+                <>
+                  {/* Left section: Menu button + "All Files" + Action buttons (mobile) */}
+                  <div className="flex items-center justify-between gap-3 lg:hidden">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        aria-label="Open sidebar"
+                        onClick={() => setSidebarOpen(true)}
+                      >
+                        <Menu className="h-5 w-5" />
+                      </Button>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <BrandLogo className="h-9 w-9 shrink-0" />
+                        <span className="truncate text-xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
+                          9Drive
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ThemeToggle />
+                      <div className="relative shrink-0">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="relative"
+                          aria-label="Repository updates"
+                          aria-expanded={updatesOpen}
+                          onClick={toggleRepoUpdates}
+                        >
+                          <Bell className="h-5 w-5" />
+                          {!updatesOpen ? (
+                            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[var(--color-bg-brand)]" />
+                          ) : null}
+                        </Button>
+                        {updatesOpen ? (
+                          <RepoUpdatesDropdown
+                            updates={updates}
+                            loading={updatesLoading}
+                            error={updatesError}
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mobile action buttons for All Files page (below the header bar) */}
+                  {isAllFiles && (
+                    <div className="lg:hidden w-full">
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() =>
+                            window.dispatchEvent(
+                              new CustomEvent("9drive:header-upload"),
+                            )
+                          }
+                          aria-label="Upload files"
+                          className="w-full justify-center gap-2"
+                        >
+                          <Upload className="h-4 w-4" />
+                          <span>Upload</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            window.dispatchEvent(
+                              new CustomEvent("9drive:header-new-folder"),
+                            )
+                          }
+                          aria-label="Create new folder"
+                          className="w-full justify-center gap-2"
+                        >
+                          <FolderPlus className="h-4 w-4" />
+                          <span>New Folder</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            window.dispatchEvent(
+                              new CustomEvent("9drive:header-sync-drive"),
+                            )
+                          }
+                          aria-label="Sync Google Drive"
+                          className="w-full justify-center gap-2"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          <span>Sync Drive</span>
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Left section for desktop: "All Files" + Action buttons */}
+                  {isAllFiles && (
+                    <div className="hidden lg:flex lg:flex-col lg:items-start gap-2 xl:gap-0">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 lg:w-auto lg:min-w-[200px]">
+                        <span className="text-lg font-extrabold text-[var(--color-text-primary)] hidden sm:block">
+                          All Files
+                        </span>
+                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() =>
+                              window.dispatchEvent(
+                                new CustomEvent("9drive:header-upload"),
+                              )
+                            }
+                            aria-label="Upload files"
+                            className="w-full sm:w-auto justify-center gap-2"
+                          >
+                            <Upload className="h-4 w-4" />
+                            <span className="hidden sm:inline">Upload</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              window.dispatchEvent(
+                                new CustomEvent("9drive:header-new-folder"),
+                              )
+                            }
+                            aria-label="Create new folder"
+                            className="w-full sm:w-auto justify-center gap-2"
+                          >
+                            <FolderPlus className="h-4 w-4" />
+                            <span className="hidden sm:inline">New Folder</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              window.dispatchEvent(
+                                new CustomEvent("9drive:header-sync-drive"),
+                              )
+                            }
+                            aria-label="Sync Google Drive"
+                            className="w-full sm:w-auto justify-center gap-2"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                            <span className="hidden sm:inline">Sync Drive</span>
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Center: Search form */}
+                  <form
+                    onSubmit={searchFiles}
+                    className="relative w-full min-w-0 flex-1 xl:max-w-xl"
                   >
-                    <Upload className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    aria-label="New Folder"
-                    onClick={() =>
-                      window.dispatchEvent(new CustomEvent("9drive:new-folder"))
-                    }
-                  >
-                    <FolderPlus className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    aria-label="Sync Drive"
-                    onClick={() =>
-                      window.dispatchEvent(new CustomEvent("9drive:sync-drive"))
-                    }
-                  >
-                    <RefreshCw className="h-5 w-5" />
-                  </Button>
-                </div>
-                <ThemeToggle />
-                <div className="relative shrink-0">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="relative"
-                    aria-label="Repository updates"
-                    aria-expanded={updatesOpen}
-                    onClick={toggleRepoUpdates}
-                  >
-                    <Bell className="h-5 w-5" />
-                    {!updatesOpen ? (
-                      <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[var(--color-bg-brand)]" />
-                    ) : null}
-                  </Button>
-                  {updatesOpen ? (
-                    <RepoUpdatesDropdown
-                      updates={updates}
-                      loading={updatesLoading}
-                      error={updatesError}
+                    <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
+                    <Input
+                      value={searchValue}
+                      onChange={(event) => setSearchValue(event.target.value)}
+                      placeholder="Search Documents"
+                      className="pl-11 pr-12"
                     />
-                  ) : null}
-                </div>
-              </div>
-            </div>
-            <form
-              onSubmit={searchFiles}
-              className="relative w-full min-w-0 flex-1 xl:max-w-xl"
-            >
-              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--color-text-tertiary)]" />
-              <Input
-                value={searchValue}
-                onChange={(event) => setSearchValue(event.target.value)}
-                placeholder="Search Documents"
-                className="pl-11 pr-12"
-              />
-              <button
-                type="submit"
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]"
-                aria-label="Search files"
-              >
-                <SlidersHorizontal className="h-5 w-5" />
-              </button>
-            </form>
-            <div className="relative hidden flex-wrap gap-3 lg:flex">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  aria-label="Upload"
-                  onClick={() =>
-                    window.dispatchEvent(new CustomEvent("9drive:upload"))
-                  }
-                >
-                  <Upload className="h-5 w-5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  aria-label="New Folder"
-                  onClick={() =>
-                    window.dispatchEvent(new CustomEvent("9drive:new-folder"))
-                  }
-                >
-                  <FolderPlus className="h-5 w-5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  aria-label="Sync Drive"
-                  onClick={() =>
-                    window.dispatchEvent(new CustomEvent("9drive:sync-drive"))
-                  }
-                >
-                  <RefreshCw className="h-5 w-5" />
-                </Button>
-              </div>
-              <ThemeToggle />
-              <Button
-                variant="outline"
-                size="icon"
-                className="relative"
-                aria-label="Repository updates"
-                aria-expanded={updatesOpen}
-                onClick={toggleRepoUpdates}
-              >
-                <Bell className="h-5 w-5" />
-                {!updatesOpen ? (
-                  <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[var(--color-bg-brand)]" />
-                ) : null}
-              </Button>
-              {updatesOpen ? (
-                <RepoUpdatesDropdown
-                  updates={updates}
-                  loading={updatesLoading}
-                  error={updatesError}
-                />
-              ) : null}
-            </div>
+                    <button
+                      type="submit"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]"
+                      aria-label="Search files"
+                    >
+                      <SlidersHorizontal className="h-5 w-5" />
+                    </button>
+                  </form>
+
+                  {/* Right section: ThemeToggle + Bell */}
+                  <div className="relative hidden flex-wrap gap-3 lg:flex lg:items-center lg:justify-end">
+                    <ThemeToggle />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="relative"
+                      aria-label="Repository updates"
+                      aria-expanded={updatesOpen}
+                      onClick={toggleRepoUpdates}
+                    >
+                      <Bell className="h-5 w-5" />
+                      {!updatesOpen ? (
+                        <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[var(--color-bg-brand)]" />
+                      ) : null}
+                    </Button>
+                    {updatesOpen ? (
+                      <RepoUpdatesDropdown
+                        updates={updates}
+                        loading={updatesLoading}
+                        error={updatesError}
+                      />
+                    ) : null}
+                  </div>
+                </>
+              );
+            })()}
           </header>
           <Outlet />
         </section>

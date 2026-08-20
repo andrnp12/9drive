@@ -408,26 +408,34 @@ export function AllFilesPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [activeFolderForMenu, cutFolder, activeFolderId]);
 
-  // Listen for header action events from DriveLayout
+  // Handle header action events from DriveLayout
   useEffect(() => {
-    function onUpload() {
+    function handleHeaderUpload() {
       setUploadOpen(true);
     }
-    function onNewFolder() {
+    function handleHeaderNewFolder() {
       setFolderOpen(true);
     }
-    function onSyncDrive() {
-      syncGoogleDrive();
+    function handleHeaderSyncDrive() {
+      // Trigger sync by calling the existing function
+      const event = new CustomEvent("9drive:header-sync-drive");
+      window.dispatchEvent(event);
     }
 
-    window.addEventListener("9drive:upload", onUpload);
-    window.addEventListener("9drive:new-folder", onNewFolder);
-    window.addEventListener("9drive:sync-drive", onSyncDrive);
+    window.addEventListener("9drive:header-upload", handleHeaderUpload);
+    window.addEventListener("9drive:header-new-folder", handleHeaderNewFolder);
+    window.addEventListener("9drive:header-sync-drive", handleHeaderSyncDrive);
 
     return () => {
-      window.removeEventListener("9drive:upload", onUpload);
-      window.removeEventListener("9drive:new-folder", onNewFolder);
-      window.removeEventListener("9drive:sync-drive", onSyncDrive);
+      window.removeEventListener("9drive:header-upload", handleHeaderUpload);
+      window.removeEventListener(
+        "9drive:header-new-folder",
+        handleHeaderNewFolder,
+      );
+      window.removeEventListener(
+        "9drive:header-sync-drive",
+        handleHeaderSyncDrive,
+      );
     };
   }, []);
 
