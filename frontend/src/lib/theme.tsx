@@ -73,12 +73,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("9drive:theme", newTheme);
   }, []);
 
-  if (!mounted) {
-    // Render children without theme context to avoid hydration mismatch
-    // The actual theme will be applied in useEffect
-    return <>{children}</>;
-  }
-
+  // Always provide the context, but with initial values before mounted
+  // This prevents "useTheme must be used within a ThemeProvider" error
   return (
     <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
       {children}
