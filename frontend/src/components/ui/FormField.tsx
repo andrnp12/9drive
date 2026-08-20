@@ -524,6 +524,10 @@ export function FormSection({
             disabled={disabled}
             showLabel={showLabels}
             showHelpText={showHelpText}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onChange={onChange as any}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onBlur={onBlur as any}
           />
         ))}
       </div>
