@@ -26,7 +26,8 @@ import { BrandLogo } from "@/components/drive/BrandLogo";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { apiFetch, formatBytes, formatDate } from "@/lib/api";
-import { clearAuthSession } from "@/lib/auth";
+import { clearAuthSession, getStoredUser, type AuthUser } from "@/lib/auth";
+import { getGravatarUrl } from "@/lib/gravatar";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_STORAGE_KEY = "9drive_sidebar_collapsed";
@@ -356,18 +357,6 @@ function Sidebar({
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <Button
-              variant="danger"
-              className="mt-4 w-full justify-start transition-opacity duration-200"
-              onClick={onLogout}
-            >
-              <span className={cn(iconContainerClass, "bg-transparent")}>
-                <LogOut className={iconClass} />
-              </span>
-              <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">
-                Log Out
-              </span>
-            </Button>
           </div>
         </Card>
       </div>
@@ -388,6 +377,8 @@ export function DriveLayout() {
     return false;
   });
   const [searchValue, setSearchValue] = useState(searchParams.get("q") ?? "");
+  const [user, setUser] = useState<AuthUser | null>(getStoredUser());
+  const [profileImageUrl, setProfileImageUrl] = useState("");
   const [storage, setStorage] = useState<StorageSummary | null>(null);
   const [breakdown, setBreakdown] = useState<StorageBreakdown>({
     photo: "0",
@@ -536,6 +527,25 @@ export function DriveLayout() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Load user profile when user changes
+  useEffect(() => {
+    if (user?.email) {
+      getGravatarUrl(user.email, 64)
+        .then(setProfileImageUrl)
+        .catch(() => setProfileImageUrl(""));
+    } else {
+      setProfileImageUrl("");
+    }
+  }, [user?.email]);
+
+  // Sync user state with stored auth
+  useEffect(() => {
+    const stored = getStoredUser();
+    if (stored && JSON.stringify(stored) !== JSON.stringify(user)) {
+      setUser(stored);
+    }
+  }, [user]);
+
   // Close account menu on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -548,6 +558,17 @@ export function DriveLayout() {
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Close account menu on escape key
+  useEffect(() => {
+    function handleEscapeKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setAccountMenuOpen(false);
+      }
+    }
+    document.addEventListener("keydown", handleEscapeKey);
+    return () => document.removeEventListener("keydown", handleEscapeKey);
   }, []);
 
   function toggleAccountMenu() {
@@ -695,13 +716,33 @@ export function DriveLayout() {
                   aria-expanded={accountMenuOpen}
                   onClick={toggleAccountMenu}
                 >
-                  <User className="h-5 w-5" />
+                  {profileImageUrl ? (
+                    <img
+                      src={profileImageUrl}
+                      alt="User avatar"
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : user?.name ? (
+                    <div className="h-8 w-8 rounded-full bg-[var(--color-bg-brand)] flex items-center justify-center text-[var(--color-button-primary-text)] font-semibold text-sm">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                  ) : (
+                    <User className="h-5 w-5" />
+                  )}
                 </Button>
                 {accountMenuOpen && (
                   <div
-                    className="absolute right-0 top-12 z-50 w-48 overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] shadow-2xl shadow-[var(--color-shadow-xl)]"
+                    className="absolute right-0 top-12 z-50 w-60 overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] shadow-2xl shadow-[var(--color-shadow-xl)]"
                     role="menu"
                   >
+                    <div className="px-4 py-3 border-b border-[var(--color-card-border)]">
+                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        {user?.name ?? "User"}
+                      </p>
+                      <p className="text-xs text-[var(--color-text-tertiary)] truncate">
+                        {user?.email ?? ""}
+                      </p>
+                    </div>
                     <NavLink
                       to="/settings"
                       onClick={() => setAccountMenuOpen(false)}
@@ -734,6 +775,16 @@ export function DriveLayout() {
                       <SlidersHorizontal className="h-5 w-5 shrink-0" />
                       API
                     </NavLink>
+                    <div className="border-t border-[var(--color-card-border)]" />
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-[var(--color-text-danger)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                      role="menuitem"
+                      onClick={logout}
+                    >
+                      <LogOut className="h-5 w-5 shrink-0" />
+                      Log Out
+                    </button>
                   </div>
                 )}
               </div>
