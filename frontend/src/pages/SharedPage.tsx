@@ -70,9 +70,9 @@ export function SharedPage() {
               </div>
               <span className={cn('w-fit rounded-full px-3 py-1 text-xs font-bold capitalize', invite.status === 'accepted' ? 'bg-[var(--color-bg-success-subtle)] text-[var(--color-text-success)]' : 'bg-[var(--color-bg-warning-subtle)] text-[var(--color-text-warning)]')}>{invite.status}</span>
             </div>
-          ))} />
+          ))}
         </div>
-      </Card>
+      </Card
 
       <Card className="mt-6 p-5">
         <h2 className="font-extrabold text-[var(--color-text-primary)]">Resources You Shared</h2>
@@ -93,7 +93,7 @@ export function SharedPage() {
                 <Button variant="danger" size="sm" onClick={() => revokeInvite(invite.id)}><Trash2 className="h-4 w-4" />Revoke</Button>
               </div>
             </div>
-          ))} />
+          ))}
         </div>
       </Card>
     </>
