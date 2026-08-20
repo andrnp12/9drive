@@ -24,16 +24,20 @@ interface FormFieldProps {
   showError?: boolean;
 }
 
-type ForwardedInputProps = InputHTMLAttributes<HTMLInputElement> &
-  SelectHTMLAttributes<HTMLSelectElement> &
-  TextareaHTMLAttributes<HTMLTextAreaElement>;
+// Separate the forwarded props to avoid conflicts with our custom onChange/onBlur
+type NativeInputProps = Omit<
+  InputHTMLAttributes<HTMLInputElement> &
+    SelectHTMLAttributes<HTMLSelectElement> &
+    TextareaHTMLAttributes<HTMLTextAreaElement>,
+  "onChange" | "onBlur"
+>;
 
 export const FormField = forwardRef<
   | HTMLInputElement
   | HTMLSelectElement
   | HTMLTextAreaElement
   | HTMLButtonElement,
-  FormFieldProps & ForwardedInputProps
+  FormFieldProps & NativeInputProps
 >(
   (
     {
@@ -557,7 +561,7 @@ export function DynamicForm({
   submitLabel,
   cancelLabel,
 }: DynamicFormProps) {
-  const { getConfig } = useFormConfig();
+  const { getConfig, t } = useFormConfig();
   const [formData, setFormData] =
     useState<Record<string, unknown>>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});
