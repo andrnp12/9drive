@@ -408,37 +408,6 @@ export function AllFilesPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [activeFolderForMenu, cutFolder, activeFolderId]);
 
-  // Handle header action events from DriveLayout
-  useEffect(() => {
-    function handleHeaderUpload() {
-      setUploadOpen(true);
-    }
-    function handleHeaderNewFolder() {
-      setFolderOpen(true);
-    }
-    function handleHeaderSyncDrive() {
-      // Trigger sync by calling the existing function
-      const event = new CustomEvent("9drive:header-sync-drive");
-      window.dispatchEvent(event);
-    }
-
-    window.addEventListener("9drive:header-upload", handleHeaderUpload);
-    window.addEventListener("9drive:header-new-folder", handleHeaderNewFolder);
-    window.addEventListener("9drive:header-sync-drive", handleHeaderSyncDrive);
-
-    return () => {
-      window.removeEventListener("9drive:header-upload", handleHeaderUpload);
-      window.removeEventListener(
-        "9drive:header-new-folder",
-        handleHeaderNewFolder,
-      );
-      window.removeEventListener(
-        "9drive:header-sync-drive",
-        handleHeaderSyncDrive,
-      );
-    };
-  }, []);
-
   useEffect(() => {
     if (
       !previewOpen ||
@@ -1210,20 +1179,15 @@ export function AllFilesPage() {
           }
           actions={
             <>
-              <Button className="w-full" onClick={() => setUploadOpen(true)}>
+              <Button onClick={() => setUploadOpen(true)}>
                 <Upload className="h-4 w-4" />
                 Upload
               </Button>
-              <Button
-                className="w-full"
-                variant="outline"
-                onClick={() => setFolderOpen(true)}
-              >
+              <Button variant="outline" onClick={() => setFolderOpen(true)}>
                 <FolderPlus className="h-4 w-4" />
                 New Folder
               </Button>
               <Button
-                className="w-full"
                 variant="outline"
                 disabled={syncingDrive}
                 onClick={syncGoogleDrive}
