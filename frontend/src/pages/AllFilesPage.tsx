@@ -203,7 +203,7 @@ function FolderAppearanceFields({
   const normalizedColor = normalizeFolderColor(color);
   return (
     <div className="grid gap-4">
-      <label className="grid gap-2 text-sm font-semibold">
+      <label className="grid gap-2 text-sm font-semibold text-[var(--color-text-primary)]">
         Folder Color
         <Input
           type="color"
@@ -229,7 +229,7 @@ function FolderAppearanceFields({
         ))}
       </div>
       <div className="grid gap-2 text-sm font-semibold">
-        <span>Folder Icon</span>
+        <span className="text-[var(--color-text-primary)]">Folder Icon</span>
         <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
           {folderIconOptions.map((option) => (
             <button
@@ -407,6 +407,29 @@ export function AllFilesPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [activeFolderForMenu, cutFolder, activeFolderId]);
+
+  // Listen for header action events from DriveLayout
+  useEffect(() => {
+    function onUpload() {
+      setUploadOpen(true);
+    }
+    function onNewFolder() {
+      setFolderOpen(true);
+    }
+    function onSyncDrive() {
+      syncGoogleDrive();
+    }
+
+    window.addEventListener("9drive:upload", onUpload);
+    window.addEventListener("9drive:new-folder", onNewFolder);
+    window.addEventListener("9drive:sync-drive", onSyncDrive);
+
+    return () => {
+      window.removeEventListener("9drive:upload", onUpload);
+      window.removeEventListener("9drive:new-folder", onNewFolder);
+      window.removeEventListener("9drive:sync-drive", onSyncDrive);
+    };
+  }, []);
 
   useEffect(() => {
     if (

@@ -10,15 +10,18 @@ import {
   Bell,
   Braces,
   FileArchive,
+  FolderPlus,
   Gauge,
   LogOut,
   Menu,
   MoreVertical,
+  RefreshCw,
   Search,
   Settings,
   Share2,
   SlidersHorizontal,
   Star,
+  Upload,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -499,6 +502,38 @@ export function DriveLayout() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Upload"
+                    onClick={() =>
+                      window.dispatchEvent(new CustomEvent("9drive:upload"))
+                    }
+                  >
+                    <Upload className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="New Folder"
+                    onClick={() =>
+                      window.dispatchEvent(new CustomEvent("9drive:new-folder"))
+                    }
+                  >
+                    <FolderPlus className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Sync Drive"
+                    onClick={() =>
+                      window.dispatchEvent(new CustomEvent("9drive:sync-drive"))
+                    }
+                  >
+                    <RefreshCw className="h-5 w-5" />
+                  </Button>
+                </div>
                 <ThemeToggle />
                 <div className="relative shrink-0">
                   <Button
@@ -544,6 +579,38 @@ export function DriveLayout() {
               </button>
             </form>
             <div className="relative hidden flex-wrap gap-3 lg:flex">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Upload"
+                  onClick={() =>
+                    window.dispatchEvent(new CustomEvent("9drive:upload"))
+                  }
+                >
+                  <Upload className="h-5 w-5" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="New Folder"
+                  onClick={() =>
+                    window.dispatchEvent(new CustomEvent("9drive:new-folder"))
+                  }
+                >
+                  <FolderPlus className="h-5 w-5" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Sync Drive"
+                  onClick={() =>
+                    window.dispatchEvent(new CustomEvent("9drive:sync-drive"))
+                  }
+                >
+                  <RefreshCw className="h-5 w-5" />
+                </Button>
+              </div>
               <ThemeToggle />
               <Button
                 variant="outline"
