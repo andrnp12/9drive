@@ -9,6 +9,7 @@ import {
 import {
   Bell,
   Braces,
+  ChevronLeft,
   FileArchive,
   Gauge,
   LogOut,
@@ -35,6 +36,8 @@ import {
 } from "@/lib/auth";
 import { getGravatarUrl } from "@/lib/gravatar";
 import { cn } from "@/lib/utils";
+
+const SIDEBAR_STORAGE_KEY = "9drive:sidebar-collapsed";
 
 const menu = [
   { label: "All Files", icon: FileArchive, href: "/all-files" },
@@ -150,12 +153,14 @@ function Sidebar({
   storage,
   breakdown,
   onLogout,
+  isCollapsed,
 }: {
   onNavigate?: () => void;
   user: AuthUser | null;
   storage: StorageSummary | null;
   breakdown: StorageBreakdown;
   onLogout: () => void;
+  isCollapsed: boolean;
 }) {
   const used = Number(storage?.usedBytes ?? 0);
   const total = Number(storage?.totalBytes ?? 0);
@@ -175,42 +180,73 @@ function Sidebar({
   }, [user?.email]);
 
   return (
-    <aside className="flex h-full w-72 flex-col border-[var(--color-card-border)] bg-[var(--color-card-bg)] p-5 lg:border-r">
+    <aside
+      id="sidebar"
+      role="navigation"
+      aria-label="Main navigation"
+      className={cn(
+        "flex h-full flex-col border-[var(--color-card-border)] bg-[var(--color-card-bg)] p-5 lg:border-r transition-all duration-300 ease-out",
+        "transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+        isCollapsed
+          ? "w-[var(--sidebar-width-collapsed)]"
+          : "w-[var(--sidebar-width-expanded)]",
+      )}
+      style={{
+        transitionProperty: "width",
+        transitionDuration: "var(--sidebar-transition-duration)",
+        transitionTimingFunction: "var(--sidebar-transition-easing)",
+      }}
+    >
       <div className="flex items-center gap-3 pb-5">
         <BrandLogo />
-        <span className="text-2xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
-          9Drive
-        </span>
+        {!isCollapsed && (
+          <span className="text-2xl font-extrabold tracking-tight text-[var(--color-text-primary)] transition-opacity duration-200">
+            9Drive
+          </span>
+        )}
       </div>
 
-      <div className="flex items-center gap-3 border-y border-[var(--color-card-border)] py-5">
+      <div
+        className={cn(
+          "flex items-center border-y border-[var(--color-card-border)] py-5 transition-all duration-200",
+          isCollapsed ? "justify-center gap-0" : "gap-3",
+        )}
+      >
         <img
           src={profileImageUrl}
           alt="User avatar"
-          className="h-10 w-10 rounded-full object-cover"
+          className="h-10 w-10 rounded-full object-cover shrink-0"
         />
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-bold text-[var(--color-text-primary)]">
-            {user?.name ?? "User"}
-          </p>
-          <p className="truncate text-sm text-[var(--color-text-tertiary)]">
-            {user?.email ?? "Loading..."}
-          </p>
-        </div>
-        <MoreVertical className="h-5 w-5 text-[var(--color-text-tertiary)]" />
+        {!isCollapsed && (
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-bold text-[var(--color-text-primary)]">
+              {user?.name ?? "User"}
+            </p>
+            <p className="truncate text-sm text-[var(--color-text-tertiary)]">
+              {user?.email ?? "Loading..."}
+            </p>
+          </div>
+        )}
+        {!isCollapsed && (
+          <MoreVertical className="h-5 w-5 text-[var(--color-text-tertiary)] shrink-0" />
+        )}
       </div>
 
-      <nav className="mt-6 grid gap-2">
+      <nav className="mt-6 grid gap-2" aria-label="Main menu">
         {menu.map((item) =>
           item.disabled ? (
             <button
               key={item.label}
               type="button"
               disabled
-              className="inline-flex h-11 cursor-not-allowed items-center gap-2 rounded-xl px-4 text-sm font-semibold text-[var(--color-text-quaternary)] opacity-70"
+              className={cn(
+                "inline-flex h-11 cursor-not-allowed rounded-xl px-4 text-sm font-semibold text-[var(--color-text-quaternary)] opacity-70 transition-all duration-200",
+                isCollapsed ? "justify-center" : "items-center gap-2",
+              )}
+              aria-label={item.label}
             >
-              <item.icon className="h-5 w-5" />
-              {item.label}
+              <item.icon className="h-5 w-5 shrink-0" />
+              {!isCollapsed && <span>{item.label}</span>}
             </button>
           ) : (
             <NavLink
@@ -219,21 +255,29 @@ function Sidebar({
               onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
-                  "inline-flex h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-all",
+                  "inline-flex h-11 rounded-xl px-4 text-sm font-semibold transition-all duration-200",
+                  isCollapsed ? "justify-center" : "items-center gap-2",
                   isActive
                     ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] shadow-sm"
                     : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]",
                 )
               }
+              aria-label={item.label}
+              title={isCollapsed ? item.label : undefined}
             >
-              <item.icon className="h-5 w-5" />
-              {item.label}
+              <item.icon className="h-5 w-5 shrink-0" />
+              {!isCollapsed && <span>{item.label}</span>}
             </NavLink>
           ),
         )}
       </nav>
 
-      <div className="mt-5 border-t border-[var(--color-card-border)] pt-5">
+      <div
+        className={cn(
+          "mt-5 border-t border-[var(--color-card-border)] pt-5 transition-all duration-200",
+          isCollapsed && "hidden",
+        )}
+      >
         <NavLink
           to="/settings"
           onClick={onNavigate}
@@ -266,49 +310,57 @@ function Sidebar({
         </NavLink>
       </div>
 
-      <Card className="mt-6 p-4 lg:mt-auto">
-        {items.map(([label, value, color]) => (
-          <div
-            key={label}
-            className="mb-3 flex items-center justify-between text-sm"
-          >
-            <span className="flex items-center gap-3">
-              <span className={cn("h-4 w-4 rounded", color)} />
-              <span className="text-[var(--color-text-secondary)]">
-                {label}
-              </span>
-            </span>
-            <span className="font-semibold text-[var(--color-text-primary)]">
-              {value}
-            </span>
-          </div>
-        ))}
-        <div className="mt-4 border-t border-[var(--color-card-border)] pt-4 text-sm">
-          <p className="text-[var(--color-text-secondary)]">
-            <b className="text-[var(--color-text-primary)]">
-              {formatBytes(storage?.usedBytes)}
-            </b>{" "}
-            used of{" "}
-            <span className="text-[var(--color-text-tertiary)]">
-              {formatBytes(storage?.totalBytes)}
-            </span>
-          </p>
-          <div className="my-3 h-1.5 rounded-full bg-[var(--color-bg-tertiary)]">
+      <div
+        className={cn(
+          "mt-6 p-4 lg:mt-auto transition-all duration-200",
+          isCollapsed && "hidden",
+        )}
+      >
+        <Card>
+          {items.map(([label, value, color]) => (
             <div
-              className="h-full rounded-full bg-[var(--color-bg-brand)]"
-              style={{ width: `${progress}%` }}
-            />
+              key={label}
+              className="mb-3 flex items-center justify-between text-sm"
+            >
+              <span className="flex items-center gap-3">
+                <span className={cn("h-4 w-4 rounded", color)} />
+                <span className="text-[var(--color-text-secondary)]">
+                  {label}
+                </span>
+              </span>
+              <span className="font-semibold text-[var(--color-text-primary)]">
+                {value}
+              </span>
+            </div>
+          ))}
+          <div className="mt-4 border-t border-[var(--color-card-border)] pt-4 text-sm">
+            <p className="text-[var(--color-text-secondary)]">
+              <b className="text-[var(--color-text-primary)]">
+                {formatBytes(storage?.usedBytes)}
+              </b>{" "}
+              used of{" "}
+              <span className="text-[var(--color-text-tertiary)]">
+                {formatBytes(storage?.totalBytes)}
+              </span>
+            </p>
+            <div className="my-3 h-1.5 rounded-full bg-[var(--color-bg-tertiary)]">
+              <div
+                className="h-full rounded-full bg-[var(--color-bg-brand)]"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <Button
+              variant="danger"
+              className="mt-4 w-full justify-start"
+              onClick={onLogout}
+            >
+              <LogOut className="h-5 w-5" />
+              <span className="sr-only">Log Out</span>
+              {!isCollapsed && <span>Log Out</span>}
+            </Button>
           </div>
-          <Button
-            variant="danger"
-            className="mt-4 w-full justify-start"
-            onClick={onLogout}
-          >
-            <LogOut className="h-5 w-5" />
-            Log Out
-          </Button>
-        </div>
-      </Card>
+        </Card>
+      </div>
     </aside>
   );
 }
@@ -318,6 +370,13 @@ export function DriveLayout() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+      return stored === "true";
+    }
+    return false;
+  });
   const [searchValue, setSearchValue] = useState(searchParams.get("q") ?? "");
   const [user, setUser] = useState<AuthUser | null>(getStoredUser());
   const [storage, setStorage] = useState<StorageSummary | null>(null);
@@ -331,6 +390,41 @@ export function DriveLayout() {
   const [updatesLoading, setUpdatesLoading] = useState(false);
   const [updatesError, setUpdatesError] = useState("");
   const [updatesLoaded, setUpdatesLoaded] = useState(false);
+  const [sidebarAnnouncement, setSidebarAnnouncement] = useState("");
+
+  // Persist sidebar collapsed state to localStorage
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, String(isSidebarCollapsed));
+  }, [isSidebarCollapsed]);
+
+  // Announce sidebar state changes for screen readers
+  useEffect(() => {
+    if (sidebarAnnouncement) {
+      const announcement = document.createElement("div");
+      announcement.setAttribute("role", "status");
+      announcement.setAttribute("aria-live", "polite");
+      announcement.setAttribute("aria-atomic", "true");
+      announcement.className = "sr-only";
+      announcement.textContent = sidebarAnnouncement;
+      document.body.appendChild(announcement);
+      setTimeout(() => document.body.removeChild(announcement), 1000);
+    }
+  }, [sidebarAnnouncement]);
+
+  function toggleSidebar() {
+    const nextState = !isSidebarCollapsed;
+    setIsSidebarCollapsed(nextState);
+    setSidebarAnnouncement(
+      nextState ? "Sidebar collapsed" : "Sidebar expanded",
+    );
+  }
+
+  function expandSidebar() {
+    if (isSidebarCollapsed) {
+      setIsSidebarCollapsed(false);
+      setSidebarAnnouncement("Sidebar expanded");
+    }
+  }
 
   const loadSidebarStatsRef = useRef<(() => Promise<void>) | null>(null);
 
@@ -446,6 +540,7 @@ export function DriveLayout() {
             storage={storage}
             breakdown={breakdown}
             onLogout={logout}
+            isCollapsed={isSidebarCollapsed}
           />
         </div>
         <div
@@ -477,6 +572,7 @@ export function DriveLayout() {
             breakdown={breakdown}
             onLogout={logout}
             onNavigate={() => setSidebarOpen(false)}
+            isCollapsed={false}
           />
         </div>
         <section className="min-w-0 flex-1 p-4 sm:p-8 lg:h-screen lg:overflow-y-auto lg:p-10">
@@ -544,6 +640,46 @@ export function DriveLayout() {
               </button>
             </form>
             <div className="relative hidden flex-wrap gap-3 lg:flex">
+              <div className="flex items-center gap-2">
+                <div
+                  className="flex items-center gap-2 cursor-pointer select-none"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={
+                    isSidebarCollapsed ? "Expand sidebar" : "9Drive Home"
+                  }
+                  aria-expanded={!isSidebarCollapsed}
+                  onClick={expandSidebar}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      expandSidebar();
+                    }
+                  }}
+                >
+                  <BrandLogo className="h-9 w-9 shrink-0" />
+                  <span className="truncate text-xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
+                    9Drive
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label={
+                    isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+                  }
+                  aria-expanded={!isSidebarCollapsed}
+                  aria-controls="sidebar"
+                  onClick={toggleSidebar}
+                  className="ml-1"
+                >
+                  {isSidebarCollapsed ? (
+                    <Menu className="h-5 w-5" />
+                  ) : (
+                    <ChevronLeft className="h-5 w-5" />
+                  )}
+                </Button>
+              </div>
               <ThemeToggle />
               <Button
                 variant="outline"
