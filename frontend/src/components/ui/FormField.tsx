@@ -250,11 +250,13 @@ export const FormField = forwardRef<
       case "submit": {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { onClick: _onClick, ...buttonProps } = props;
+        // Cast size to Button size type
+        const buttonSize = (size as "default" | "sm" | "icon") || "default";
         return (
           <Button
             // Button doesn't forward ref, so we don't pass ref
             variant={variant}
-            size={size}
+            size={buttonSize}
             disabled={disabled}
             onClick={() => {
               // Call field.onClick if defined
@@ -421,7 +423,18 @@ export const FormField = forwardRef<
               required={required}
               placeholder={placeholder}
               aria-label={ariaLabel || label}
-              inputMode={inputMode}
+              inputMode={
+                inputMode as
+                  | "search"
+                  | "none"
+                  | "text"
+                  | "tel"
+                  | "url"
+                  | "email"
+                  | "numeric"
+                  | "decimal"
+                  | undefined
+              }
               min={validation?.min as number | undefined}
               max={validation?.max as number | undefined}
               minLength={validation?.minLength as number | undefined}
