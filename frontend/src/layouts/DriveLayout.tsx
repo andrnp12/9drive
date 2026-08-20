@@ -183,7 +183,8 @@ function Sidebar({
   }, [user?.email]);
 
   // Standardized icon container: 40x40px with centered 20x20px icon
-  const iconContainerClass = "flex h-10 w-10 items-center justify-center shrink-0";
+  const iconContainerClass =
+    "flex h-10 w-10 items-center justify-center shrink-0";
   const iconClass = "h-5 w-5";
 
   return (
@@ -210,7 +211,7 @@ function Sidebar({
         <div
           className={cn(
             "flex items-center gap-2 cursor-pointer select-none transition-opacity duration-200",
-            isCollapsed ? "justify-center w-full" : "flex-1"
+            isCollapsed ? "justify-center w-full" : "flex-1",
           )}
           role="button"
           tabIndex={0}
@@ -230,7 +231,7 @@ function Sidebar({
               9Drive
             </span>
           )}
-        />
+        </div>
         {/* Hamburger toggle - only visible when expanded */}
         {!isCollapsed && (
           <button
@@ -238,7 +239,7 @@ function Sidebar({
             className={cn(
               iconContainerClass,
               "text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-xl transition-all duration-200",
-              "focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-2 focus:ring-offset-[var(--color-card-bg)]"
+              "focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-2 focus:ring-offset-[var(--color-card-bg)]",
             )}
             aria-label="Collapse sidebar"
             aria-expanded={false}
@@ -283,7 +284,11 @@ function Sidebar({
       </div>
 
       {/* Navigation Menu */}
-      <nav className="mt-6 grid gap-2" aria-label="Main menu" style={{ minWidth: 0 }}>
+      <nav
+        className="mt-6 grid gap-2"
+        aria-label="Main menu"
+        style={{ minWidth: 0 }}
+      >
         {menu.map((item) =>
           item.disabled ? (
             <button
@@ -331,7 +336,8 @@ function Sidebar({
                 )
               }
               style={{
-                transitionProperty: "width, opacity, transform, padding, background-color",
+                transitionProperty:
+                  "width, opacity, transform, padding, background-color",
                 transitionDuration: "var(--sidebar-transition-duration)",
                 transitionTimingFunction: "var(--sidebar-transition-easing)",
               }}
@@ -355,7 +361,9 @@ function Sidebar({
       <div
         className={cn(
           "mt-5 border-t border-[var(--color-card-border)] pt-5 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden",
-          isCollapsed ? "h-0 opacity-0 pointer-events-none" : "h-auto opacity-100",
+          isCollapsed
+            ? "h-0 opacity-0 pointer-events-none"
+            : "h-auto opacity-100",
         )}
         style={{
           transitionProperty: "height, opacity, padding, border-width",
@@ -379,7 +387,9 @@ function Sidebar({
           <span className={cn(iconContainerClass, "bg-transparent")}>
             <Settings className={iconClass} />
           </span>
-          <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">Setting</span>
+          <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">
+            Setting
+          </span>
         </NavLink>
         <NavLink
           to="/api"
@@ -397,7 +407,9 @@ function Sidebar({
           <span className={cn(iconContainerClass, "bg-transparent")}>
             <Braces className={iconClass} />
           </span>
-          <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">API</span>
+          <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">
+            API
+          </span>
         </NavLink>
       </div>
 
@@ -405,7 +417,9 @@ function Sidebar({
       <div
         className={cn(
           "mt-6 lg:mt-auto transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden",
-          isCollapsed ? "h-0 opacity-0 pointer-events-none" : "h-auto opacity-100",
+          isCollapsed
+            ? "h-0 opacity-0 pointer-events-none"
+            : "h-auto opacity-100",
         )}
         style={{
           transitionProperty: "height, opacity, padding, margin",
