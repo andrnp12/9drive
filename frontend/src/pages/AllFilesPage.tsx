@@ -1606,7 +1606,7 @@ export function AllFilesPage() {
               </b>
             </p>
           ) : (
-            <label className="grid gap-2 text-sm font-semibold">
+            <label className="grid gap-2 text-sm font-semibold text-[var(--color-text-secondary)]">
               Virtual Folder
               <select
                 className="h-11 rounded-xl border border-[var(--color-input-border)] bg-[var(--color-input-bg)] px-3 text-sm text-[var(--color-input-text)]"
@@ -1680,7 +1680,7 @@ export function AllFilesPage() {
         onClose={() => setFolderOpen(false)}
       >
         <form onSubmit={createFolder} className="grid gap-4">
-          <label className="grid gap-2 text-sm font-semibold">
+          <label className="grid gap-2 text-sm font-semibold text-[var(--color-text-secondary)]">
             Folder Name
             <Input
               value={folderName}
@@ -1890,7 +1890,7 @@ export function AllFilesPage() {
         onClose={() => setInviteOpen(false)}
       >
         <form onSubmit={sendInvite} className="grid gap-4">
-          <label className="grid gap-2 text-sm font-semibold">
+          <label className="grid gap-2 text-sm font-semibold text-[var(--color-text-secondary)]">
             Email Address
             <Input
               type="email"
@@ -1900,7 +1900,7 @@ export function AllFilesPage() {
               required
             />
           </label>
-          <label className="grid gap-2 text-sm font-semibold">
+          <label className="grid gap-2 text-sm font-semibold text-[var(--color-text-secondary)]">
             Role
             <select
               className="h-11 rounded-xl border border-[var(--color-input-border)] bg-[var(--color-input-bg)] px-3 text-sm text-[var(--color-input-text)]"

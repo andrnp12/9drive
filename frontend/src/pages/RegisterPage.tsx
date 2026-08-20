@@ -143,7 +143,7 @@ export function RegisterPage() {
           </div>
         </div>
         <form onSubmit={submit} className="mt-6 grid gap-4">
-          <label className="grid gap-2 text-sm font-semibold">
+          <label className="grid gap-2 text-sm font-semibold text-[var(--color-text-secondary)]">
             Name
             <Input
               value={name}
@@ -151,7 +151,7 @@ export function RegisterPage() {
               required
             />
           </label>
-          <label className="grid gap-2 text-sm font-semibold">
+          <label className="grid gap-2 text-sm font-semibold text-[var(--color-text-secondary)]">
             Email
             <Input
               type="email"
@@ -160,7 +160,7 @@ export function RegisterPage() {
               required
             />
           </label>
-          <label className="grid gap-2 text-sm font-semibold">
+          <label className="grid gap-2 text-sm font-semibold text-[var(--color-text-secondary)]">
             Password
             <Input
               type="password"

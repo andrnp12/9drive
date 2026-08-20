@@ -312,7 +312,7 @@ export function QuotaTrackerPage() {
               Choose how new uploads pick connected storage accounts.
             </p>
           </div>
-          <label className="grid gap-2 text-sm font-semibold lg:w-64">
+          <label className="grid gap-2 text-sm font-semibold text-[var(--color-text-secondary)] lg:w-64">
             Routing mode
             <select
               className="h-11 rounded-xl border border-[var(--color-input-border)] bg-[var(--color-input-bg)] px-3 text-sm text-[var(--color-input-text)]"
