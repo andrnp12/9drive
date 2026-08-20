@@ -144,7 +144,6 @@ function Sidebar({
   onNavigate,
   storage,
   breakdown,
-  onLogout,
   isCollapsed,
   onToggleCollapse,
   onExpand,
@@ -152,7 +151,6 @@ function Sidebar({
   onNavigate?: () => void;
   storage: StorageSummary | null;
   breakdown: StorageBreakdown;
-  onLogout: () => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   onExpand: () => void;
@@ -614,7 +612,6 @@ export function DriveLayout() {
           <Sidebar
             storage={storage}
             breakdown={breakdown}
-            onLogout={logout}
             onNavigate={() => setSidebarOpen(false)}
             isCollapsed={false}
             onToggleCollapse={toggleSidebar}
