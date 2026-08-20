@@ -666,6 +666,26 @@ export function DriveLayout() {
             </form>
             <div className="relative hidden flex-wrap gap-3 lg:flex">
               <ThemeToggle />
+              <Button
+                variant="outline"
+                size="icon"
+                className="relative"
+                aria-label="Repository updates"
+                aria-expanded={updatesOpen}
+                onClick={toggleRepoUpdates}
+              >
+                <Bell className="h-5 w-5" />
+                {!updatesOpen ? (
+                  <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[var(--color-bg-brand)]" />
+                ) : null}
+              </Button>
+              {updatesOpen ? (
+                <RepoUpdatesDropdown
+                  updates={updates}
+                  loading={updatesLoading}
+                  error={updatesError}
+                />
+              ) : null}
               <div className="relative" ref={accountMenuRef}>
                 <Button
                   variant="outline"
@@ -717,26 +737,6 @@ export function DriveLayout() {
                   </div>
                 )}
               </div>
-              <Button
-                variant="outline"
-                size="icon"
-                className="relative"
-                aria-label="Repository updates"
-                aria-expanded={updatesOpen}
-                onClick={toggleRepoUpdates}
-              >
-                <Bell className="h-5 w-5" />
-                {!updatesOpen ? (
-                  <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[var(--color-bg-brand)]" />
-                ) : null}
-              </Button>
-              {updatesOpen ? (
-                <RepoUpdatesDropdown
-                  updates={updates}
-                  loading={updatesLoading}
-                  error={updatesError}
-                />
-              ) : null}
             </div>
           </header>
           <Outlet />
