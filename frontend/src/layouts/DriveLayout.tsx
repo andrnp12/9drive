@@ -8,7 +8,6 @@ import {
 } from "react-router-dom";
 import {
   Bell,
-  Braces,
   FileArchive,
   Gauge,
   LogOut,
@@ -316,62 +315,6 @@ function Sidebar({
         )}
       </nav>
 
-      {/* Settings & API Links - Hidden when collapsed */}
-      <div
-        className={cn(
-          "mt-5 border-t border-[var(--color-card-border)] pt-5 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden",
-          isCollapsed
-            ? "h-0 opacity-0 pointer-events-none"
-            : "h-auto opacity-100",
-        )}
-        style={{
-          transitionProperty: "height, opacity, padding, border-width",
-          transitionDuration: "var(--sidebar-transition-duration)",
-          transitionTimingFunction: "var(--sidebar-transition-easing)",
-        }}
-      >
-        <NavLink
-          to="/settings"
-          onClick={onNavigate}
-          className={({ isActive }) =>
-            cn(
-              "inline-flex h-11 w-full items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-all duration-200",
-              "focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-2 focus:ring-offset-[var(--color-card-bg)]",
-              isActive
-                ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] shadow-sm"
-                : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]",
-            )
-          }
-        >
-          <span className={cn(iconContainerClass, "bg-transparent")}>
-            <Settings className={iconClass} />
-          </span>
-          <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">
-            Setting
-          </span>
-        </NavLink>
-        <NavLink
-          to="/api"
-          onClick={onNavigate}
-          className={({ isActive }) =>
-            cn(
-              "mt-2 inline-flex h-11 w-full items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-all duration-200",
-              "focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-2 focus:ring-offset-[var(--color-card-bg)]",
-              isActive
-                ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] shadow-sm"
-                : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]",
-            )
-          }
-        >
-          <span className={cn(iconContainerClass, "bg-transparent")}>
-            <Braces className={iconClass} />
-          </span>
-          <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">
-            API
-          </span>
-        </NavLink>
-      </div>
-
       {/* Storage Calculation Section - Preserved layout when expanded, hidden when collapsed */}
       <div
         className={cn(
@@ -465,6 +408,8 @@ export function DriveLayout() {
   const [updatesError, setUpdatesError] = useState("");
   const [updatesLoaded, setUpdatesLoaded] = useState(false);
   const [sidebarAnnouncement, setSidebarAnnouncement] = useState("");
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
 
   // Persist sidebar collapsed state to localStorage
   useEffect(() => {
@@ -616,6 +561,24 @@ export function DriveLayout() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Close account menu on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        accountMenuRef.current &&
+        !accountMenuRef.current.contains(event.target as Node)
+      ) {
+        setAccountMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function toggleAccountMenu() {
+    setAccountMenuOpen((open) => !open);
+  }
+
   return (
     <main className="min-h-screen w-full overflow-x-hidden bg-[var(--color-bg-primary)]">
       <div className="flex min-h-screen w-full flex-col bg-[var(--color-bg-primary)] lg:h-screen lg:overflow-hidden lg:flex-row">
@@ -728,22 +691,57 @@ export function DriveLayout() {
             </form>
             <div className="relative hidden flex-wrap gap-3 lg:flex">
               <ThemeToggle />
-              <Button
-                variant="outline"
-                size="icon"
-                className="relative"
-                aria-label="User profile"
-              >
-                {profileImageUrl ? (
-                  <img
-                    src={profileImageUrl}
-                    alt="User avatar"
-                    className="h-8 w-8 rounded-full object-cover"
-                  />
-                ) : (
+              <div className="relative" ref={accountMenuRef}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="relative"
+                  aria-label="Account menu"
+                  aria-expanded={accountMenuOpen}
+                  onClick={toggleAccountMenu}
+                >
                   <User className="h-5 w-5" />
+                </Button>
+                {accountMenuOpen && (
+                  <div
+                    className="absolute right-0 top-12 z-50 w-48 overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] shadow-2xl shadow-[var(--color-shadow-xl)]"
+                    role="menu"
+                  >
+                    <NavLink
+                      to="/settings"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className={({ isActive }) =>
+                        cn(
+                          "flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold transition-colors",
+                          isActive
+                            ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)]"
+                            : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]",
+                        )
+                      }
+                      role="menuitem"
+                    >
+                      <Settings className="h-5 w-5 shrink-0" />
+                      Settings
+                    </NavLink>
+                    <NavLink
+                      to="/api"
+                      onClick={() => setAccountMenuOpen(false)}
+                      className={({ isActive }) =>
+                        cn(
+                          "flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold transition-colors",
+                          isActive
+                            ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)]"
+                            : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]",
+                        )
+                      }
+                      role="menuitem"
+                    >
+                      <SlidersHorizontal className="h-5 w-5 shrink-0" />
+                      API
+                    </NavLink>
+                  </div>
                 )}
-              </Button>
+              </div>
               <Button
                 variant="outline"
                 size="icon"
