@@ -8,6 +8,245 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* ===== Light Mode (Default) ===== */
+  /* Backgrounds */
+  --color-bg-primary: #f8fafc;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #f1f5f9;
+  --color-bg-hover: #e2e8f0;
+  --color-bg-active: #cbd5e1;
+  --color-bg-brand: #2563eb;
+  --color-bg-brand-hover: #1d4ed8;
+  --color-bg-brand-subtle: #dbeafe;
+  --color-bg-brand-border: #bfdbfe;
+  --color-bg-success-subtle: #dcfce7;
+  --color-bg-success-border: #86efac;
+  --color-bg-warning-subtle: #fef9c3;
+  --color-bg-warning-border: #fde047;
+  --color-bg-danger-subtle: #fef2f2;
+  --color-bg-danger-border: #fecaca;
+  --color-bg-info-subtle: #e0f2fe;
+  --color-bg-info-border: #7dd3fc;
+  --color-bg-overlay: rgba(15, 23, 42, 0.45);
+  --color-bg-overlay-strong: rgba(15, 23, 42, 0.3);
+
+  /* Text Colors */
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #334155;
+  --color-text-tertiary: #64748b;
+  --color-text-quaternary: #94a3b8;
+  --color-text-inverse: #ffffff;
+  --color-text-brand: #2563eb;
+  --color-text-brand-hover: #1d4ed8;
+  --color-text-success: #166534;
+  --color-text-warning: #854d0e;
+  --color-text-danger: #991b1b;
+  --color-text-info: #0369a1;
+
+  /* Border Colors */
+  --color-border-primary: #e2e8f0;
+  --color-border-secondary: #cbd5e1;
+  --color-border-focus: #2563eb;
+  --color-border-brand: #bfdbfe;
+  --color-border-success: #86efac;
+  --color-border-warning: #fde047;
+  --color-border-danger: #fecaca;
+
+  /* Shadow Colors */
+  --color-shadow-sm: rgba(15, 23, 42, 0.05);
+  --color-shadow-md: rgba(15, 23, 42, 0.1);
+  --color-shadow-lg: rgba(15, 23, 42, 0.15);
+  --color-shadow-xl: rgba(15, 23, 42, 0.2);
+  --color-shadow-brand: rgba(37, 99, 235, 0.25);
+
+  /* Interactive States */
+  --color-ring-offset: #ffffff;
+  --color-ring: #2563eb;
+  --color-ring-success: #22c55e;
+  --color-ring-warning: #eab308;
+  --color-ring-danger: #ef4444;
+
+  /* Component Specific */
+  --color-input-bg: #ffffff;
+  --color-input-border: #e2e8f0;
+  --color-input-text: #0f172a;
+  --color-input-placeholder: #94a3b8;
+
+  --color-card-bg: #ffffff;
+  --color-card-border: #e2e8f0;
+  --color-card-shadow: rgba(15, 23, 42, 0.05);
+
+  --color-button-primary-bg: #2563eb;
+  --color-button-primary-text: #ffffff;
+  --color-button-primary-hover: #1d4ed8;
+  --color-button-primary-shadow: rgba(37, 99, 235, 0.25);
+
+  --color-button-outline-bg: #ffffff;
+  --color-button-outline-text: #0f172a;
+  --color-button-outline-border: #e2e8f0;
+  --color-button-outline-hover: #f1f5f9;
+
+  --color-button-ghost-text: #334155;
+  --color-button-ghost-hover: #f1f5f9;
+
+  --color-button-soft-bg: #f1f5f9;
+  --color-button-soft-text: #0f172a;
+  --color-button-soft-hover: #e2e8f0;
+
+  --color-button-danger-text: #ea580c;
+  --color-button-danger-hover: #fff7ed;
+
+  /* Selection/Highlight */
+  --color-selection-bg: #dbeafe;
+  --color-selection-border: #bfdbfe;
+  --color-selection-text: #1e40af;
+
+  /* Progress/Loading */
+  --color-progress-track: #e2e8f0;
+  --color-progress-fill: #2563eb;
+
+  /* Video/Preview */
+  --color-video-bg: #000000;
+
+  /* Folder Colors (remain as hex, but can be CSS vars if needed) */
+  --folder-color-1: #3b82f6;
+  --folder-color-2: #84cc16;
+  --folder-color-3: #22d3ee;
+  --folder-color-4: #facc15;
+  --folder-color-5: #f97316;
+  --folder-color-6: #ef4444;
+  --folder-color-7: #a855f7;
+  --folder-color-8: #14b8a6;
+}
+
+/* ===== Dark Mode ===== */
+.dark {
+  /* Backgrounds */
+  --color-bg-primary: #0f172a;
+  --color-bg-secondary: #1e293b;
+  --color-bg-tertiary: #334155;
+  --color-bg-hover: #475569;
+  --color-bg-active: #64748b;
+  --color-bg-brand: #3b82f6;
+  --color-bg-brand-hover: #2563eb;
+  --color-bg-brand-subtle: #1e3a5f;
+  --color-bg-brand-border: #1e40af;
+  --color-bg-success-subtle: #064e3b;
+  --color-bg-success-border: #065f46;
+  --color-bg-warning-subtle: #713f12;
+  --color-bg-warning-border: #92400e;
+  --color-bg-danger-subtle: #7f1d1d;
+  --color-bg-danger-border: #991b1b;
+  --color-bg-info-subtle: #0c4a6e;
+  --color-bg-info-border: #075985;
+  --color-bg-overlay: rgba(0, 0, 0, 0.6);
+  --color-bg-overlay-strong: rgba(0, 0, 0, 0.4);
+
+  /* Text Colors */
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #e2e8f0;
+  --color-text-tertiary: #94a3b8;
+  --color-text-quaternary: #64748b;
+  --color-text-inverse: #0f172a;
+  --color-text-brand: #60a5fa;
+  --color-text-brand-hover: #93c5fd;
+  --color-text-success: #6ee7b7;
+  --color-text-warning: #fde047;
+  --color-text-danger: #fca5a5;
+  --color-text-info: #7dd3fc;
+
+  /* Border Colors */
+  --color-border-primary: #334155;
+  --color-border-secondary: #475569;
+  --color-border-focus: #3b82f6;
+  --color-border-brand: #1e40af;
+  --color-border-success: #065f46;
+  --color-border-warning: #92400e;
+  --color-border-danger: #991b1b;
+
+  /* Shadow Colors */
+  --color-shadow-sm: rgba(0, 0, 0, 0.2);
+  --color-shadow-md: rgba(0, 0, 0, 0.3);
+  --color-shadow-lg: rgba(0, 0, 0, 0.4);
+  --color-shadow-xl: rgba(0, 0, 0, 0.5);
+  --color-shadow-brand: rgba(59, 130, 246, 0.3);
+
+  /* Interactive States */
+  --color-ring-offset: #1e293b;
+  --color-ring: #3b82f6;
+  --color-ring-success: #4ade80;
+  --color-ring-warning: #facc15;
+  --color-ring-danger: #f87171;
+
+  /* Component Specific */
+  --color-input-bg: #1e293b;
+  --color-input-border: #334155;
+  --color-input-text: #f8fafc;
+  --color-input-placeholder: #64748b;
+
+  --color-card-bg: #1e293b;
+  --color-card-border: #334155;
+  --color-card-shadow: rgba(0, 0, 0, 0.2);
+
+  --color-button-primary-bg: #3b82f6;
+  --color-button-primary-text: #ffffff;
+  --color-button-primary-hover: #2563eb;
+  --color-button-primary-shadow: rgba(59, 130, 246, 0.3);
+
+  --color-button-outline-bg: #1e293b;
+  --color-button-outline-text: #f8fafc;
+  --color-button-outline-border: #334155;
+  --color-button-outline-hover: #334155;
+
+  --color-button-ghost-text: #e2e8f0;
+  --color-button-ghost-hover: #334155;
+
+  --color-button-soft-bg: #334155;
+  --color-button-soft-text: #f8fafc;
+  --color-button-soft-hover: #475569;
+
+  --color-button-danger-text: #fb923c;
+  --color-button-danger-hover: #334155;
+
+  /* Selection/Highlight */
+  --color-selection-bg: #1e3a5f;
+  --color-selection-border: #1e40af;
+  --color-selection-text: #93c5fd;
+
+  /* Progress/Loading */
+  --color-progress-track: #334155;
+  --color-progress-fill: #3b82f6;
+
+  /* Video/Preview */
+  --color-video-bg: #000000;
+}
+
+/* ===== Transitions ===== */
+*,
+*::before,
+*::after {
+  transition-property:
+    color, background-color, border-color, text-decoration-color, fill, stroke,
+    opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Disable transitions for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== System preference fallback ===== */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    /* Dark mode variables applied automatically if no .light class */
+  }
 }
 
 * {
@@ -26,7 +265,7 @@ input {
 
 .shared-video-shell {
   align-items: center;
-  background: #000;
+  background: var(--color-video-bg);
   display: flex;
   height: 100%;
   justify-content: center;
@@ -46,7 +285,7 @@ input {
 
 .drive-preview-video-shell {
   align-items: center;
-  background: #000;
+  background: var(--color-video-bg);
   display: flex;
   height: 70vh;
   justify-content: center;

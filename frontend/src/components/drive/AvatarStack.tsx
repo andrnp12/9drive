@@ -6,9 +6,9 @@ export function AvatarStack({ count }: { count: number }) {
           key={index}
           src={`https://i.pravatar.cc/48?img=${12 + index}`}
           alt="Member avatar"
-          className="h-5 w-5 rounded-full border-2 border-white object-cover"
+          className="h-5 w-5 rounded-full border-2 border-[var(--color-bg-secondary)] object-cover"
         />
       ))}
     </div>
-  )
+  );
 }
