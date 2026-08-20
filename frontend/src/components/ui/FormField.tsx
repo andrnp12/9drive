@@ -1,7 +1,6 @@
 import * as React from "react";
 import {
   forwardRef,
-  type ReactNode,
   type InputHTMLAttributes,
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
@@ -9,7 +8,6 @@ import {
 } from "react";
 import { useFormConfig } from "../../lib/formConfigProvider";
 import { Button } from "./button";
-import { Input } from "./input";
 import { cn } from "../../lib/utils";
 
 interface FormFieldProps {
@@ -524,10 +522,6 @@ export function FormSection({
             disabled={disabled}
             showLabel={showLabels}
             showHelpText={showHelpText}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onChange={onChange as any}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onBlur={onBlur as any}
           />
         ))}
       </div>
@@ -563,7 +557,7 @@ export function DynamicForm({
   submitLabel,
   cancelLabel,
 }: DynamicFormProps) {
-  const { getConfig, t } = useFormConfig();
+  const { getConfig } = useFormConfig();
   const [formData, setFormData] =
     useState<Record<string, unknown>>(initialData);
   const [errors, setErrors] = useState<Record<string, string>>({});

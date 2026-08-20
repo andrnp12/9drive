@@ -88,7 +88,7 @@ export function FormConfigProvider({
   translations?: Partial<typeof i18nKeys>;
 }) {
   // Merge provided configs with defaults
-  const mergedConfigs = useMemo(() => {
+  const mergedConfigs = useMemo<FormConfigMap>(() => {
     return { ...defaultFormConfigs, ...configs };
   }, [configs]);
 
