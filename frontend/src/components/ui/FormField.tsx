@@ -251,8 +251,7 @@ export const FormField = forwardRef<
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { onClick: _onClick, ...buttonProps } = props;
         // Cast fieldSize to Button size type
-        const buttonSize =
-          (fieldSize as "default" | "sm" | "icon") || "default";
+        const buttonSize = fieldSize as "default" | "sm" | "icon";
         return (
           <Button
             // Button doesn't forward ref, so we don't pass ref
