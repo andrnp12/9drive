@@ -32,7 +32,6 @@ import {
   updateStoredUser,
   type AuthUser,
 } from "@/lib/auth";
-import { getGravatarUrl } from "@/lib/gravatar";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_STORAGE_KEY = "9drive_sidebar_collapsed";
@@ -395,7 +394,6 @@ export function DriveLayout() {
   });
   const [searchValue, setSearchValue] = useState(searchParams.get("q") ?? "");
   const [user, setUser] = useState<AuthUser | null>(getStoredUser());
-  const [profileImageUrl, setProfileImageUrl] = useState("");
   const [storage, setStorage] = useState<StorageSummary | null>(null);
   const [breakdown, setBreakdown] = useState<StorageBreakdown>({
     photo: "0",
@@ -541,17 +539,6 @@ export function DriveLayout() {
     return () =>
       window.removeEventListener("9drive:storage-changed", onStorageChanged);
   }, []);
-
-  // Load profile image when user changes
-  useEffect(() => {
-    if (user?.email) {
-      getGravatarUrl(user.email, 64)
-        .then(setProfileImageUrl)
-        .catch(() => setProfileImageUrl(""));
-    } else {
-      setProfileImageUrl("");
-    }
-  }, [user?.email]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
