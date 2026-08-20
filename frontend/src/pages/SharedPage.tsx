@@ -1,11 +1,18 @@
 import { useEffect, useState } from "react";
-import { Clock, FileArchive, Folder, Users, UserCheck } from "lucide-react";
+import {
+  Clock,
+  FileArchive,
+  Folder,
+  Trash2,
+  Users,
+  UserCheck,
+} from "lucide-react";
 import { MetricCard } from "@/components/drive/MetricCard";
 import { PageHeader } from "@/components/drive/PageHeader";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { apiFetch, formatBytes, formatDate } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { FormField } from "@/components/ui/FormField";
 
 type InviteTarget = {
   id: string;
@@ -190,13 +197,14 @@ export function SharedPage() {
                   >
                     {invite.status}
                   </span>
-                  <FormField
-                    formId="sharedPage"
-                    sectionId="revokeInvite"
-                    fieldName="revoke"
-                    formData={{ inviteId: invite.id }}
-                    onChange={() => revokeInvite(invite.id)}
-                  />
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => revokeInvite(invite.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Revoke
+                  </Button>
                 </div>
               </div>
             ))
