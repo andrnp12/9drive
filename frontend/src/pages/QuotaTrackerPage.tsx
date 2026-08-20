@@ -440,7 +440,7 @@ export function QuotaTrackerPage() {
                 </div>
                 <div className="mt-6">
                   <div className="mb-2 flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-2 font-semibold">
+                    <span className="flex items-center gap-2 font-semibold text-[var(--color-text-tertiary)]">
                       <span
                         className={cn(
                           "h-3 w-3 rounded-full",
