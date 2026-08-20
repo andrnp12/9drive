@@ -13,7 +13,6 @@ import {
   Gauge,
   LogOut,
   Menu,
-  MoreVertical,
   Search,
   Settings,
   Share2,
@@ -149,8 +148,6 @@ function RepoUpdatesDropdown({
 
 function Sidebar({
   onNavigate,
-  user,
-  profileImageUrl,
   storage,
   breakdown,
   onLogout,
@@ -159,8 +156,6 @@ function Sidebar({
   onExpand,
 }: {
   onNavigate?: () => void;
-  user: AuthUser | null;
-  profileImageUrl: string;
   storage: StorageSummary | null;
   breakdown: StorageBreakdown;
   onLogout: () => void;
@@ -626,8 +621,6 @@ export function DriveLayout() {
       <div className="flex min-h-screen w-full flex-col bg-[var(--color-bg-primary)] lg:h-screen lg:overflow-hidden lg:flex-row">
         <div className="hidden lg:block lg:h-screen lg:shrink-0">
           <Sidebar
-            user={user}
-            profileImageUrl={profileImageUrl}
             storage={storage}
             breakdown={breakdown}
             onLogout={logout}
@@ -660,8 +653,6 @@ export function DriveLayout() {
             </Button>
           </div>
           <Sidebar
-            user={user}
-            profileImageUrl={profileImageUrl}
             storage={storage}
             breakdown={breakdown}
             onLogout={logout}
