@@ -9,7 +9,6 @@ import {
 import {
   Bell,
   Braces,
-  ChevronLeft,
   FileArchive,
   Gauge,
   LogOut,
@@ -37,7 +36,7 @@ import {
 import { getGravatarUrl } from "@/lib/gravatar";
 import { cn } from "@/lib/utils";
 
-const SIDEBAR_STORAGE_KEY = "9drive:sidebar-collapsed";
+const SIDEBAR_STORAGE_KEY = "9drive_sidebar_collapsed";
 
 const menu = [
   { label: "All Files", icon: FileArchive, href: "/all-files" },
@@ -154,6 +153,8 @@ function Sidebar({
   breakdown,
   onLogout,
   isCollapsed,
+  onToggleCollapse,
+  onExpand,
 }: {
   onNavigate?: () => void;
   user: AuthUser | null;
@@ -161,6 +162,8 @@ function Sidebar({
   breakdown: StorageBreakdown;
   onLogout: () => void;
   isCollapsed: boolean;
+  onToggleCollapse: () => void;
+  onExpand: () => void;
 }) {
   const used = Number(storage?.usedBytes ?? 0);
   const total = Number(storage?.totalBytes ?? 0);
@@ -179,38 +182,85 @@ function Sidebar({
       .catch(() => setProfileImageUrl(""));
   }, [user?.email]);
 
+  // Standardized icon container: 40x40px with centered 20x20px icon
+  const iconContainerClass = "flex h-10 w-10 items-center justify-center shrink-0";
+  const iconClass = "h-5 w-5";
+
   return (
     <aside
       id="sidebar"
       role="navigation"
       aria-label="Main navigation"
       className={cn(
-        "flex h-full flex-col border-[var(--color-card-border)] bg-[var(--color-card-bg)] p-5 lg:border-r transition-all duration-300 ease-out",
-        "transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+        "flex h-full flex-col border-[var(--color-card-border)] bg-[var(--color-card-bg)] p-5 lg:border-r",
+        "transition-[width,opacity,transform] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
         isCollapsed
           ? "w-[var(--sidebar-width-collapsed)]"
           : "w-[var(--sidebar-width-expanded)]",
       )}
       style={{
-        transitionProperty: "width",
+        transitionProperty: "width, opacity, transform",
         transitionDuration: "var(--sidebar-transition-duration)",
         transitionTimingFunction: "var(--sidebar-transition-easing)",
       }}
     >
-      <div className="flex items-center gap-3 pb-5">
-        <BrandLogo />
+      {/* Sidebar Header with Logo and Hamburger Toggle */}
+      <div className="flex items-center gap-2 pb-5">
+        {/* Clickable logo area - expands sidebar when clicked in collapsed state */}
+        <div
+          className={cn(
+            "flex items-center gap-2 cursor-pointer select-none transition-opacity duration-200",
+            isCollapsed ? "justify-center w-full" : "flex-1"
+          )}
+          role="button"
+          tabIndex={0}
+          aria-label={isCollapsed ? "Expand sidebar" : "9Drive Home"}
+          aria-expanded={!isCollapsed}
+          onClick={onExpand}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onExpand();
+            }
+          }}
+        >
+          <BrandLogo className="h-9 w-9 shrink-0" />
+          {!isCollapsed && (
+            <span className="text-xl font-extrabold tracking-tight text-[var(--color-text-primary)] transition-opacity duration-200 whitespace-nowrap overflow-hidden">
+              9Drive
+            </span>
+          )}
+        />
+        {/* Hamburger toggle - only visible when expanded */}
         {!isCollapsed && (
-          <span className="text-2xl font-extrabold tracking-tight text-[var(--color-text-primary)] transition-opacity duration-200">
-            9Drive
-          </span>
+          <button
+            type="button"
+            className={cn(
+              iconContainerClass,
+              "text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] rounded-xl transition-all duration-200",
+              "focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-2 focus:ring-offset-[var(--color-card-bg)]"
+            )}
+            aria-label="Collapse sidebar"
+            aria-expanded={false}
+            aria-controls="sidebar"
+            onClick={onToggleCollapse}
+          >
+            <Menu className={iconClass} />
+          </button>
         )}
       </div>
 
+      {/* User Profile Section */}
       <div
         className={cn(
-          "flex items-center border-y border-[var(--color-card-border)] py-5 transition-all duration-200",
-          isCollapsed ? "justify-center gap-0" : "gap-3",
+          "flex items-center border-y border-[var(--color-card-border)] py-5 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+          isCollapsed ? "justify-center gap-0 px-0" : "gap-3 px-0",
         )}
+        style={{
+          transitionProperty: "width, opacity, transform, padding",
+          transitionDuration: "var(--sidebar-transition-duration)",
+          transitionTimingFunction: "var(--sidebar-transition-easing)",
+        }}
       >
         <img
           src={profileImageUrl}
@@ -218,21 +268,22 @@ function Sidebar({
           className="h-10 w-10 rounded-full object-cover shrink-0"
         />
         {!isCollapsed && (
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-bold text-[var(--color-text-primary)]">
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <p className="truncate font-bold text-[var(--color-text-primary)] transition-opacity duration-200">
               {user?.name ?? "User"}
             </p>
-            <p className="truncate text-sm text-[var(--color-text-tertiary)]">
+            <p className="truncate text-sm text-[var(--color-text-tertiary)] transition-opacity duration-200">
               {user?.email ?? "Loading..."}
             </p>
           </div>
         )}
         {!isCollapsed && (
-          <MoreVertical className="h-5 w-5 text-[var(--color-text-tertiary)] shrink-0" />
+          <MoreVertical className="h-5 w-5 text-[var(--color-text-tertiary)] shrink-0 transition-opacity duration-200" />
         )}
       </div>
 
-      <nav className="mt-6 grid gap-2" aria-label="Main menu">
+      {/* Navigation Menu */}
+      <nav className="mt-6 grid gap-2" aria-label="Main menu" style={{ minWidth: 0 }}>
         {menu.map((item) =>
           item.disabled ? (
             <button
@@ -240,13 +291,27 @@ function Sidebar({
               type="button"
               disabled
               className={cn(
-                "inline-flex h-11 cursor-not-allowed rounded-xl px-4 text-sm font-semibold text-[var(--color-text-quaternary)] opacity-70 transition-all duration-200",
-                isCollapsed ? "justify-center" : "items-center gap-2",
+                "relative inline-flex h-11 rounded-xl px-4 text-sm font-semibold text-[var(--color-text-quaternary)] opacity-70 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+                "focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-2 focus:ring-offset-[var(--color-card-bg)]",
+                isCollapsed
+                  ? "justify-center w-full px-0"
+                  : "items-center gap-2 w-full justify-start",
               )}
+              style={{
+                transitionProperty: "width, opacity, transform, padding",
+                transitionDuration: "var(--sidebar-transition-duration)",
+                transitionTimingFunction: "var(--sidebar-transition-easing)",
+              }}
               aria-label={item.label}
             >
-              <item.icon className="h-5 w-5 shrink-0" />
-              {!isCollapsed && <span>{item.label}</span>}
+              <span className={cn(iconContainerClass, "bg-transparent")}>
+                <item.icon className={iconClass} />
+              </span>
+              {!isCollapsed && (
+                <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">
+                  {item.label}
+                </span>
+              )}
             </button>
           ) : (
             <NavLink
@@ -255,85 +320,117 @@ function Sidebar({
               onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
-                  "inline-flex h-11 rounded-xl px-4 text-sm font-semibold transition-all duration-200",
-                  isCollapsed ? "justify-center" : "items-center gap-2",
+                  "relative inline-flex h-11 rounded-xl px-4 text-sm font-semibold transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+                  "focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-2 focus:ring-offset-[var(--color-card-bg)]",
+                  isCollapsed
+                    ? "justify-center w-full px-0"
+                    : "items-center gap-2 w-full justify-start",
                   isActive
                     ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] shadow-sm"
                     : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]",
                 )
               }
+              style={{
+                transitionProperty: "width, opacity, transform, padding, background-color",
+                transitionDuration: "var(--sidebar-transition-duration)",
+                transitionTimingFunction: "var(--sidebar-transition-easing)",
+              }}
               aria-label={item.label}
               title={isCollapsed ? item.label : undefined}
             >
-              <item.icon className="h-5 w-5 shrink-0" />
-              {!isCollapsed && <span>{item.label}</span>}
+              <span className={cn(iconContainerClass, "bg-transparent")}>
+                <item.icon className={iconClass} />
+              </span>
+              {!isCollapsed && (
+                <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">
+                  {item.label}
+                </span>
+              )}
             </NavLink>
           ),
         )}
       </nav>
 
+      {/* Settings & API Links - Hidden when collapsed */}
       <div
         className={cn(
-          "mt-5 border-t border-[var(--color-card-border)] pt-5 transition-all duration-200",
-          isCollapsed && "hidden",
+          "mt-5 border-t border-[var(--color-card-border)] pt-5 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden",
+          isCollapsed ? "h-0 opacity-0 pointer-events-none" : "h-auto opacity-100",
         )}
+        style={{
+          transitionProperty: "height, opacity, padding, border-width",
+          transitionDuration: "var(--sidebar-transition-duration)",
+          transitionTimingFunction: "var(--sidebar-transition-easing)",
+        }}
       >
         <NavLink
           to="/settings"
           onClick={onNavigate}
           className={({ isActive }) =>
             cn(
-              "inline-flex h-11 w-full items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-all",
+              "inline-flex h-11 w-full items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-all duration-200",
+              "focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-2 focus:ring-offset-[var(--color-card-bg)]",
               isActive
                 ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] shadow-sm"
                 : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]",
             )
           }
         >
-          <Settings className="h-5 w-5" />
-          Setting
+          <span className={cn(iconContainerClass, "bg-transparent")}>
+            <Settings className={iconClass} />
+          </span>
+          <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">Setting</span>
         </NavLink>
         <NavLink
           to="/api"
           onClick={onNavigate}
           className={({ isActive }) =>
             cn(
-              "mt-2 inline-flex h-11 w-full items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-all",
+              "mt-2 inline-flex h-11 w-full items-center gap-2 rounded-xl px-4 text-sm font-semibold transition-all duration-200",
+              "focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-2 focus:ring-offset-[var(--color-card-bg)]",
               isActive
                 ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] shadow-sm"
                 : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]",
             )
           }
         >
-          <Braces className="h-5 w-5" />
-          API
+          <span className={cn(iconContainerClass, "bg-transparent")}>
+            <Braces className={iconClass} />
+          </span>
+          <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">API</span>
         </NavLink>
       </div>
 
+      {/* Storage Calculation Section - Preserved layout when expanded, hidden when collapsed */}
       <div
         className={cn(
-          "mt-6 p-4 lg:mt-auto transition-all duration-200",
-          isCollapsed && "hidden",
+          "mt-6 lg:mt-auto transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden",
+          isCollapsed ? "h-0 opacity-0 pointer-events-none" : "h-auto opacity-100",
         )}
+        style={{
+          transitionProperty: "height, opacity, padding, margin",
+          transitionDuration: "var(--sidebar-transition-duration)",
+          transitionTimingFunction: "var(--sidebar-transition-easing)",
+        }}
       >
-        <Card>
+        <Card className="p-4">
           {items.map(([label, value, color]) => (
             <div
               key={label}
-              className="mb-3 flex items-center justify-between text-sm"
+              className="mb-3 flex items-center justify-between text-sm transition-opacity duration-200"
             >
               <span className="flex items-center gap-3">
                 <span className={cn("h-4 w-4 rounded", color)} />
-                <span className="text-[var(--color-text-secondary)]">
+                <span className="text-[var(--color-text-secondary)] transition-opacity duration-200 whitespace-nowrap overflow-hidden">
                   {label}
                 </span>
               </span>
-              <span className="font-semibold text-[var(--color-text-primary)]">
+              <span className="font-semibold text-[var(--color-text-primary)] transition-opacity duration-200 whitespace-nowrap overflow-hidden">
                 {value}
               </span>
             </div>
           ))}
-          <div className="mt-4 border-t border-[var(--color-card-border)] pt-4 text-sm">
+          <div className="mt-4 border-t border-[var(--color-card-border)] pt-4 text-sm transition-opacity duration-200">
             <p className="text-[var(--color-text-secondary)]">
               <b className="text-[var(--color-text-primary)]">
                 {formatBytes(storage?.usedBytes)}
@@ -345,18 +442,21 @@ function Sidebar({
             </p>
             <div className="my-3 h-1.5 rounded-full bg-[var(--color-bg-tertiary)]">
               <div
-                className="h-full rounded-full bg-[var(--color-bg-brand)]"
+                className="h-full rounded-full bg-[var(--color-bg-brand)] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]"
                 style={{ width: `${progress}%` }}
               />
             </div>
             <Button
               variant="danger"
-              className="mt-4 w-full justify-start"
+              className="mt-4 w-full justify-start transition-opacity duration-200"
               onClick={onLogout}
             >
-              <LogOut className="h-5 w-5" />
-              <span className="sr-only">Log Out</span>
-              {!isCollapsed && <span>Log Out</span>}
+              <span className={cn(iconContainerClass, "bg-transparent")}>
+                <LogOut className={iconClass} />
+              </span>
+              <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">
+                Log Out
+              </span>
             </Button>
           </div>
         </Card>
@@ -541,6 +641,8 @@ export function DriveLayout() {
             breakdown={breakdown}
             onLogout={logout}
             isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={toggleSidebar}
+            onExpand={expandSidebar}
           />
         </div>
         <div
@@ -573,6 +675,8 @@ export function DriveLayout() {
             onLogout={logout}
             onNavigate={() => setSidebarOpen(false)}
             isCollapsed={false}
+            onToggleCollapse={toggleSidebar}
+            onExpand={expandSidebar}
           />
         </div>
         <section className="min-w-0 flex-1 p-4 sm:p-8 lg:h-screen lg:overflow-y-auto lg:p-10">
@@ -640,46 +744,6 @@ export function DriveLayout() {
               </button>
             </form>
             <div className="relative hidden flex-wrap gap-3 lg:flex">
-              <div className="flex items-center gap-2">
-                <div
-                  className="flex items-center gap-2 cursor-pointer select-none"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={
-                    isSidebarCollapsed ? "Expand sidebar" : "9Drive Home"
-                  }
-                  aria-expanded={!isSidebarCollapsed}
-                  onClick={expandSidebar}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      expandSidebar();
-                    }
-                  }}
-                >
-                  <BrandLogo className="h-9 w-9 shrink-0" />
-                  <span className="truncate text-xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
-                    9Drive
-                  </span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  aria-label={
-                    isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
-                  }
-                  aria-expanded={!isSidebarCollapsed}
-                  aria-controls="sidebar"
-                  onClick={toggleSidebar}
-                  className="ml-1"
-                >
-                  {isSidebarCollapsed ? (
-                    <Menu className="h-5 w-5" />
-                  ) : (
-                    <ChevronLeft className="h-5 w-5" />
-                  )}
-                </Button>
-              </div>
               <ThemeToggle />
               <Button
                 variant="outline"
