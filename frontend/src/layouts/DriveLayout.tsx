@@ -498,27 +498,30 @@ export function DriveLayout() {
                   </span>
                 </div>
               </div>
-              <div className="relative shrink-0">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="relative"
-                  aria-label="Repository updates"
-                  aria-expanded={updatesOpen}
-                  onClick={toggleRepoUpdates}
-                >
-                  <Bell className="h-5 w-5" />
-                  {!updatesOpen ? (
-                    <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[var(--color-bg-brand)]" />
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <div className="relative shrink-0">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="relative"
+                    aria-label="Repository updates"
+                    aria-expanded={updatesOpen}
+                    onClick={toggleRepoUpdates}
+                  >
+                    <Bell className="h-5 w-5" />
+                    {!updatesOpen ? (
+                      <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[var(--color-bg-brand)]" />
+                    ) : null}
+                  </Button>
+                  {updatesOpen ? (
+                    <RepoUpdatesDropdown
+                      updates={updates}
+                      loading={updatesLoading}
+                      error={updatesError}
+                    />
                   ) : null}
-                </Button>
-                {updatesOpen ? (
-                  <RepoUpdatesDropdown
-                    updates={updates}
-                    loading={updatesLoading}
-                    error={updatesError}
-                  />
-                ) : null}
+                </div>
               </div>
             </div>
             <form
