@@ -264,7 +264,7 @@ function Sidebar({
                 className={cn(
                   iconContainerClass,
                   "bg-transparent",
-                  isCollapsed ? "w-full justify-center" : "shrink-0",
+                  isCollapsed ? "w-11 h-11 justify-center" : "shrink-0",
                 )}
               >
                 <item.icon className={iconClass} />
@@ -305,7 +305,7 @@ function Sidebar({
                 className={cn(
                   iconContainerClass,
                   "bg-transparent",
-                  isCollapsed ? "w-full justify-center" : "shrink-0",
+                  isCollapsed ? "w-11 h-11 justify-center" : "shrink-0",
                 )}
               >
                 <item.icon className={iconClass} />
