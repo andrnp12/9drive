@@ -26,12 +26,7 @@ import { BrandLogo } from "@/components/drive/BrandLogo";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { apiFetch, formatBytes, formatDate } from "@/lib/api";
-import {
-  clearAuthSession,
-  getStoredUser,
-  updateStoredUser,
-  type AuthUser,
-} from "@/lib/auth";
+import { clearAuthSession, getStoredUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_STORAGE_KEY = "9drive_sidebar_collapsed";
@@ -393,7 +388,6 @@ export function DriveLayout() {
     return false;
   });
   const [searchValue, setSearchValue] = useState(searchParams.get("q") ?? "");
-  const [user, setUser] = useState<AuthUser | null>(getStoredUser());
   const [storage, setStorage] = useState<StorageSummary | null>(null);
   const [breakdown, setBreakdown] = useState<StorageBreakdown>({
     photo: "0",
@@ -522,12 +516,6 @@ export function DriveLayout() {
   }
 
   useEffect(() => {
-    apiFetch<{ user: AuthUser }>("/auth/me")
-      .then((data) => {
-        setUser(data.user);
-        updateStoredUser(data.user);
-      })
-      .catch(() => undefined);
     loadSidebarStats().catch(() => undefined);
 
     function onStorageChanged() {
