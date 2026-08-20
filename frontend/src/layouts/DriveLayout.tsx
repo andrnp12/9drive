@@ -26,7 +26,7 @@ import { BrandLogo } from "@/components/drive/BrandLogo";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { apiFetch, formatBytes, formatDate } from "@/lib/api";
-import { clearAuthSession, getStoredUser } from "@/lib/auth";
+import { clearAuthSession } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_STORAGE_KEY = "9drive_sidebar_collapsed";
