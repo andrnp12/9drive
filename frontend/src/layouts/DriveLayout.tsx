@@ -19,6 +19,7 @@ import {
   Share2,
   SlidersHorizontal,
   Star,
+  User,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -149,6 +150,7 @@ function RepoUpdatesDropdown({
 function Sidebar({
   onNavigate,
   user,
+  profileImageUrl,
   storage,
   breakdown,
   onLogout,
@@ -158,6 +160,7 @@ function Sidebar({
 }: {
   onNavigate?: () => void;
   user: AuthUser | null;
+  profileImageUrl: string;
   storage: StorageSummary | null;
   breakdown: StorageBreakdown;
   onLogout: () => void;
@@ -168,19 +171,12 @@ function Sidebar({
   const used = Number(storage?.usedBytes ?? 0);
   const total = Number(storage?.totalBytes ?? 0);
   const progress = total > 0 ? Math.min(100, (used / total) * 100) : 0;
-  const [profileImageUrl, setProfileImageUrl] = useState("");
   const items = [
     ["Photo", formatBytes(breakdown.photo), "bg-lime-500"],
     ["Video", formatBytes(breakdown.video), "bg-yellow-400"],
     ["Document", formatBytes(breakdown.document), "bg-cyan-400"],
     ["Free Storage", formatBytes(storage?.availableBytes), "bg-orange-500"],
   ];
-
-  useEffect(() => {
-    getGravatarUrl(user?.email, 64)
-      .then(setProfileImageUrl)
-      .catch(() => setProfileImageUrl(""));
-  }, [user?.email]);
 
   // Standardized icon container: 40x40px with centered 20x20px icon
   const iconContainerClass =
@@ -248,38 +244,6 @@ function Sidebar({
           >
             <Menu className={iconClass} />
           </button>
-        )}
-      </div>
-
-      {/* User Profile Section */}
-      <div
-        className={cn(
-          "flex items-center border-y border-[var(--color-card-border)] py-5 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
-          isCollapsed ? "justify-center gap-0 px-0" : "gap-3 px-0",
-        )}
-        style={{
-          transitionProperty: "width, opacity, transform, padding",
-          transitionDuration: "var(--sidebar-transition-duration)",
-          transitionTimingFunction: "var(--sidebar-transition-easing)",
-        }}
-      >
-        <img
-          src={profileImageUrl}
-          alt="User avatar"
-          className="h-10 w-10 rounded-full object-cover shrink-0"
-        />
-        {!isCollapsed && (
-          <div className="min-w-0 flex-1 overflow-hidden">
-            <p className="truncate font-bold text-[var(--color-text-primary)] transition-opacity duration-200">
-              {user?.name ?? "User"}
-            </p>
-            <p className="truncate text-sm text-[var(--color-text-tertiary)] transition-opacity duration-200">
-              {user?.email ?? "Loading..."}
-            </p>
-          </div>
-        )}
-        {!isCollapsed && (
-          <MoreVertical className="h-5 w-5 text-[var(--color-text-tertiary)] shrink-0 transition-opacity duration-200" />
         )}
       </div>
 
@@ -493,6 +457,7 @@ export function DriveLayout() {
   });
   const [searchValue, setSearchValue] = useState(searchParams.get("q") ?? "");
   const [user, setUser] = useState<AuthUser | null>(getStoredUser());
+  const [profileImageUrl, setProfileImageUrl] = useState("");
   const [storage, setStorage] = useState<StorageSummary | null>(null);
   const [breakdown, setBreakdown] = useState<StorageBreakdown>({
     photo: "0",
@@ -637,6 +602,17 @@ export function DriveLayout() {
       window.removeEventListener("9drive:storage-changed", onStorageChanged);
   }, []);
 
+  // Load profile image when user changes
+  useEffect(() => {
+    if (user?.email) {
+      getGravatarUrl(user.email, 64)
+        .then(setProfileImageUrl)
+        .catch(() => setProfileImageUrl(""));
+    } else {
+      setProfileImageUrl("");
+    }
+  }, [user?.email]);
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") setUpdatesOpen(false);
@@ -651,6 +627,7 @@ export function DriveLayout() {
         <div className="hidden lg:block lg:h-screen lg:shrink-0">
           <Sidebar
             user={user}
+            profileImageUrl={profileImageUrl}
             storage={storage}
             breakdown={breakdown}
             onLogout={logout}
@@ -684,6 +661,7 @@ export function DriveLayout() {
           </div>
           <Sidebar
             user={user}
+            profileImageUrl={profileImageUrl}
             storage={storage}
             breakdown={breakdown}
             onLogout={logout}
@@ -759,6 +737,22 @@ export function DriveLayout() {
             </form>
             <div className="relative hidden flex-wrap gap-3 lg:flex">
               <ThemeToggle />
+              <Button
+                variant="outline"
+                size="icon"
+                className="relative"
+                aria-label="User profile"
+              >
+                {profileImageUrl ? (
+                  <img
+                    src={profileImageUrl}
+                    alt="User avatar"
+                    className="h-8 w-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <User className="h-5 w-5" />
+                )}
+              </Button>
               <Button
                 variant="outline"
                 size="icon"
