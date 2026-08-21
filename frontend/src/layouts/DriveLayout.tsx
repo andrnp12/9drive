@@ -89,7 +89,7 @@ function RepoUpdatesDropdown({
       className={cn(
         "z-50 overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] shadow-2xl shadow-[var(--color-shadow-xl)]",
         isMobile
-          ? "fixed bottom-0 left-0 right-0 w-full rounded-t-2xl border-b-0 top-auto max-h-[70vh]"
+          ? "fixed top-16 left-0 right-0 w-full rounded-b-2xl border-t-0 bottom-auto max-h-[70vh]"
           : "absolute right-0 top-12 w-[min(calc(100vw-2rem),24rem)]",
       )}
     >
