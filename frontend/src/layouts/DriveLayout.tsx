@@ -428,6 +428,7 @@ export function DriveLayout() {
   const [sidebarAnnouncement, setSidebarAnnouncement] = useState("");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const mobileAccountMenuRef = useRef<HTMLDivElement>(null);
 
   // Persist sidebar collapsed state to localStorage
   useEffect(() => {
@@ -590,10 +591,14 @@ export function DriveLayout() {
   // Close account menu on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        accountMenuRef.current &&
-        !accountMenuRef.current.contains(event.target as Node)
-      ) {
+      const desktopMenu = accountMenuRef.current;
+      const mobileMenu = mobileAccountMenuRef.current;
+      const target = event.target as Node;
+
+      const isOutsideDesktop = !desktopMenu || !desktopMenu.contains(target);
+      const isOutsideMobile = !mobileMenu || !mobileMenu.contains(target);
+
+      if (isOutsideDesktop && isOutsideMobile) {
         setAccountMenuOpen(false);
       }
     }
@@ -723,7 +728,7 @@ export function DriveLayout() {
                     />
                   ) : null}
                 </div>
-                <div className="relative" ref={accountMenuRef}>
+                <div className="relative" ref={mobileAccountMenuRef}>
                   <Button
                     variant="outline"
                     size="icon"
