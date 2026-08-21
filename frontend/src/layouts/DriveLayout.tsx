@@ -76,13 +76,11 @@ function RepoUpdatesDropdown({
   loading,
   error,
   isMobile,
-  onClose,
 }: {
   updates: RepoUpdate[];
   loading: boolean;
   error: string;
   isMobile?: boolean;
-  onClose?: (event?: React.MouseEvent) => void;
 }) {
   return (
     <div
@@ -712,7 +710,6 @@ export function DriveLayout() {
                       loading={updatesLoading}
                       error={updatesError}
                       isMobile={true}
-                      onClose={toggleRepoUpdates}
                     />
                   ) : null}
                 </div>
