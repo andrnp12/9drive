@@ -292,7 +292,7 @@ function Sidebar({
               onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
-                  "relative inline-flex h-11 rounded-xl px-4 text-sm font-semibold transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+                  "relative flex h-11 rounded-xl px-4 text-sm font-semibold transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
                   "focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-2 focus:ring-offset-[var(--color-card-bg)]",
                   isCollapsed
                     ? "items-center justify-center w-full px-0"
@@ -311,21 +311,14 @@ function Sidebar({
               aria-label={item.label}
               title={isCollapsed ? item.label : undefined}
             >
-              {/* Collapsed mode: absolute positioning for perfect centering */}
               <span
                 className={cn(
-                  "relative w-11 h-11 flex-shrink-0",
-                  isCollapsed ? "mx-auto" : "shrink-0",
+                  iconContainerClass,
+                  "bg-transparent",
+                  isCollapsed ? "w-full" : "shrink-0",
                 )}
               >
-                <span
-                  className={cn(
-                    "absolute inset-0 flex items-center justify-center",
-                    iconContainerClassCollapsed,
-                  )}
-                >
-                  <item.icon className={iconClass} />
-                </span>
+                <item.icon className={iconClass} />
               </span>
               {!isCollapsed && (
                 <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">
