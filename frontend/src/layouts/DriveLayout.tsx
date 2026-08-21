@@ -311,14 +311,14 @@ function Sidebar({
               aria-label={item.label}
               title={isCollapsed ? item.label : undefined}
             >
+              {/* Icon wrapper: fixed square like logo, centered in NavLink */}
               <span
                 className={cn(
-                  iconContainerClass,
-                  "bg-transparent",
-                  isCollapsed ? "w-full" : "shrink-0",
+                  "flex h-11 w-11 items-center justify-center shrink-0",
+                  isCollapsed ? "mx-auto" : "shrink-0",
                 )}
               >
-                <item.icon className={iconClass} />
+                <item.icon className="h-6 w-6" />
               </span>
               {!isCollapsed && (
                 <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">
