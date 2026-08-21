@@ -233,10 +233,12 @@ function Sidebar({
           </button>
         )}
       </div>
-
       {/* Navigation Menu */}
       <nav
-        className="mt-6 flex flex-col gap-2"
+        className={cn(
+          "mt-6 flex flex-col gap-2",
+          isCollapsed ? "items-center" : "items-start",
+        )}
         aria-label="Main menu"
         style={{ minWidth: 0 }}
       >
@@ -247,11 +249,11 @@ function Sidebar({
               type="button"
               disabled
               className={cn(
-                "relative flex h-11 w-full rounded-xl px-4 text-sm font-semibold text-[var(--color-text-quaternary)] opacity-70 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+                "relative flex h-11 rounded-xl text-sm font-semibold text-[var(--color-text-quaternary)] opacity-70 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
                 "focus:outline-none",
                 isCollapsed
-                  ? "items-center justify-center px-0"
-                  : "items-center gap-2 justify-start",
+                  ? "items-center justify-center w-11 px-0"
+                  : "items-center gap-2 justify-start w-full px-4",
               )}
               style={{
                 transitionProperty: "width, opacity, transform, padding",
@@ -282,11 +284,11 @@ function Sidebar({
               onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
-                  "relative flex h-11 w-full rounded-xl px-4 text-sm font-semibold transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+                  "relative flex h-11 rounded-xl text-sm font-semibold transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
                   "focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-2 focus:ring-offset-[var(--color-card-bg)]",
                   isCollapsed
-                    ? "items-center justify-center px-0"
-                    : "items-center gap-2 justify-start",
+                    ? "items-center justify-center w-11 px-0"
+                    : "items-center gap-2 justify-start w-full px-4",
                   isActive
                     ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] shadow-sm"
                     : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]",
