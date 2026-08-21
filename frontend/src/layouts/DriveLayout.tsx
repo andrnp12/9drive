@@ -76,28 +76,42 @@ function RepoUpdatesDropdown({
   loading,
   error,
   isMobile,
+  onClose,
 }: {
   updates: RepoUpdate[];
   loading: boolean;
   error: string;
   isMobile?: boolean;
+  onClose?: (event?: React.MouseEvent) => void;
 }) {
   return (
     <div
       className={cn(
-        "z-50 w-[min(calc(100vw-2rem),24rem)] overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] shadow-2xl shadow-[var(--color-shadow-xl)]",
+        "z-50 overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] shadow-2xl shadow-[var(--color-shadow-xl)]",
         isMobile
-          ? "fixed bottom-0 left-0 right-0 rounded-t-2xl border-b-0 top-auto max-h-[70vh]"
-          : "absolute right-0 top-12",
+          ? "fixed bottom-0 left-0 right-0 w-full rounded-t-2xl border-b-0 top-auto max-h-[70vh]"
+          : "absolute right-0 top-12 w-[min(calc(100vw-2rem),24rem)]",
       )}
     >
-      <div className="border-b border-[var(--color-card-border)] px-4 py-3">
-        <p className="text-sm font-extrabold text-[var(--color-text-primary)]">
-          Repository Updates
-        </p>
-        <p className="text-xs text-[var(--color-text-tertiary)]">
-          Latest commits from zenhosta/9drive
-        </p>
+      <div className="border-b border-[var(--color-card-border)] px-4 py-3 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-extrabold text-[var(--color-text-primary)]">
+            Repository Updates
+          </p>
+          <p className="text-xs text-[var(--color-text-tertiary)]">
+            Latest commits from zenhosta/9drive
+          </p>
+        </div>
+        {isMobile && (
+          <button
+            type="button"
+            className="p-1 rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
       <div className="max-h-96 overflow-y-auto p-2">
         {loading ? (
@@ -705,6 +719,7 @@ export function DriveLayout() {
                       loading={updatesLoading}
                       error={updatesError}
                       isMobile={true}
+                      onClose={toggleRepoUpdates}
                     />
                   ) : null}
                 </div>
