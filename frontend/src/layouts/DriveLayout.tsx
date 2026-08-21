@@ -535,8 +535,8 @@ export function DriveLayout() {
     }
   }
 
-  function toggleRepoUpdates(event: React.MouseEvent) {
-    event.stopPropagation();
+  function toggleRepoUpdates(event?: React.MouseEvent) {
+    event?.stopPropagation();
     setUpdatesOpen((open: boolean) => !open);
     if (!updatesLoaded && !updatesLoading)
       loadRepoUpdates().catch(() => undefined);
