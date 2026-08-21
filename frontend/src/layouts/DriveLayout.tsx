@@ -168,6 +168,9 @@ function Sidebar({
   // Standardized icon container: 40x40px with centered 20x20px icon
   const iconContainerClass =
     "flex h-10 w-10 items-center justify-center shrink-0";
+  // Collapsed mode: absolute-positioned square wrapper for perfect centering
+  const iconContainerClassCollapsed =
+    "absolute inset-0 flex items-center justify-center";
   const iconClass = "h-5 w-5";
 
   return (
@@ -260,16 +263,21 @@ function Sidebar({
               }}
               aria-label={item.label}
             >
+              {/* Collapsed mode: absolute positioning for perfect centering */}
               <span
                 className={cn(
-                  iconContainerClass,
-                  "bg-transparent",
-                  isCollapsed
-                    ? "w-11 h-11 items-center justify-center"
-                    : "shrink-0",
+                  "relative w-11 h-11 flex-shrink-0",
+                  isCollapsed ? "mx-auto" : "shrink-0",
                 )}
               >
-                <item.icon className={iconClass} />
+                <span
+                  className={cn(
+                    "absolute inset-0 flex items-center justify-center",
+                    iconContainerClassCollapsed,
+                  )}
+                >
+                  <item.icon className={iconClass} />
+                </span>
               </span>
               {!isCollapsed && (
                 <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">
@@ -303,16 +311,21 @@ function Sidebar({
               aria-label={item.label}
               title={isCollapsed ? item.label : undefined}
             >
+              {/* Collapsed mode: absolute positioning for perfect centering */}
               <span
                 className={cn(
-                  iconContainerClass,
-                  "bg-transparent",
-                  isCollapsed
-                    ? "w-11 h-11 items-center justify-center"
-                    : "shrink-0",
+                  "relative w-11 h-11 flex-shrink-0",
+                  isCollapsed ? "mx-auto" : "shrink-0",
                 )}
               >
-                <item.icon className={iconClass} />
+                <span
+                  className={cn(
+                    "absolute inset-0 flex items-center justify-center",
+                    iconContainerClassCollapsed,
+                  )}
+                >
+                  <item.icon className={iconClass} />
+                </span>
               </span>
               {!isCollapsed && (
                 <span className="transition-opacity duration-200 whitespace-nowrap overflow-hidden">
