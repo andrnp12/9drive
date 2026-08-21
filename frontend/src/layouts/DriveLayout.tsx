@@ -285,7 +285,7 @@ function Sidebar({
               className={({ isActive }) =>
                 cn(
                   "relative flex h-11 rounded-xl text-sm font-semibold transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
-                  "focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-2 focus:ring-offset-[var(--color-card-bg)]",
+                  "focus:outline-none",
                   isCollapsed
                     ? "items-center justify-center w-11 px-0"
                     : "items-center gap-2 justify-start w-full px-4",
