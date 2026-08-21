@@ -248,7 +248,7 @@ function Sidebar({
               disabled
               className={cn(
                 "relative inline-flex h-11 rounded-xl px-4 text-sm font-semibold text-[var(--color-text-quaternary)] opacity-70 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
-                "focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-2 focus:ring-offset-[var(--color-card-bg)]",
+                "focus:outline-none",
                 isCollapsed
                   ? "items-center justify-center w-full px-0"
                   : "items-center gap-2 w-full justify-start",
