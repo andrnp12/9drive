@@ -168,9 +168,6 @@ function Sidebar({
   // Standardized icon container: 40x40px with centered 20x20px icon
   const iconContainerClass =
     "flex h-10 w-10 items-center justify-center shrink-0";
-  // Collapsed mode: absolute-positioned square wrapper for perfect centering
-  const iconContainerClassCollapsed =
-    "absolute inset-0 flex items-center justify-center";
   const iconClass = "h-5 w-5";
 
   return (
