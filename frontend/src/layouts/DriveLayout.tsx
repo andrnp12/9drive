@@ -75,13 +75,22 @@ function RepoUpdatesDropdown({
   updates,
   loading,
   error,
+  isMobile,
 }: {
   updates: RepoUpdate[];
   loading: boolean;
   error: string;
+  isMobile?: boolean;
 }) {
   return (
-    <div className="absolute right-0 top-12 z-50 w-[min(calc(100vw-2rem),24rem)] overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] shadow-2xl shadow-[var(--color-shadow-xl)]">
+    <div
+      className={cn(
+        "z-50 w-[min(calc(100vw-2rem),24rem)] overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] shadow-2xl shadow-[var(--color-shadow-xl)]",
+        isMobile
+          ? "fixed bottom-0 left-0 right-0 rounded-t-2xl border-b-0 top-auto max-h-[70vh]"
+          : "absolute right-0 top-12",
+      )}
+    >
       <div className="border-b border-[var(--color-card-border)] px-4 py-3">
         <p className="text-sm font-extrabold text-[var(--color-text-primary)]">
           Repository Updates
@@ -512,10 +521,16 @@ export function DriveLayout() {
     }
   }
 
-  function toggleRepoUpdates() {
-    setUpdatesOpen((open) => !open);
+  function toggleRepoUpdates(event: React.MouseEvent) {
+    event.stopPropagation();
+    setUpdatesOpen((open: boolean) => !open);
     if (!updatesLoaded && !updatesLoading)
       loadRepoUpdates().catch(() => undefined);
+  }
+
+  function toggleAccountMenu(event: React.MouseEvent) {
+    event.stopPropagation();
+    setAccountMenuOpen((open: boolean) => !open);
   }
 
   useEffect(() => {
@@ -572,6 +587,28 @@ export function DriveLayout() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Close repo updates dropdown on outside click
+  useEffect(() => {
+    function handleRepoUpdatesClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      const dropdown = document.querySelector('[role="menu"]');
+      if (dropdown && !dropdown.contains(target)) {
+        // Check if click is not on the bell button
+        const bellButton = document.querySelector(
+          '[aria-label="Repository updates"]',
+        );
+        if (bellButton && !bellButton.contains(target)) {
+          setUpdatesOpen(false);
+        }
+      }
+    }
+    if (updatesOpen) {
+      document.addEventListener("mousedown", handleRepoUpdatesClickOutside);
+    }
+    return () =>
+      document.removeEventListener("mousedown", handleRepoUpdatesClickOutside);
+  }, [updatesOpen]);
+
   // Close account menu on escape key
   useEffect(() => {
     function handleEscapeKey(event: KeyboardEvent) {
@@ -582,10 +619,6 @@ export function DriveLayout() {
     document.addEventListener("keydown", handleEscapeKey);
     return () => document.removeEventListener("keydown", handleEscapeKey);
   }, []);
-
-  function toggleAccountMenu() {
-    setAccountMenuOpen((open) => !open);
-  }
 
   return (
     <main className="min-h-screen w-full overflow-x-hidden bg-[var(--color-bg-primary)]">
@@ -671,6 +704,7 @@ export function DriveLayout() {
                       updates={updates}
                       loading={updatesLoading}
                       error={updatesError}
+                      isMobile={true}
                     />
                   ) : null}
                 </div>
@@ -796,6 +830,7 @@ export function DriveLayout() {
                   updates={updates}
                   loading={updatesLoading}
                   error={updatesError}
+                  isMobile={false}
                 />
               ) : null}
               <div className="relative" ref={accountMenuRef}>
