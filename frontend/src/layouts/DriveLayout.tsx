@@ -674,6 +674,87 @@ export function DriveLayout() {
                     />
                   ) : null}
                 </div>
+                <div className="relative" ref={accountMenuRef}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="relative"
+                    aria-label="Account menu"
+                    aria-expanded={accountMenuOpen}
+                    onClick={toggleAccountMenu}
+                  >
+                    {profileImageUrl ? (
+                      <img
+                        src={profileImageUrl}
+                        alt="User avatar"
+                        className="h-8 w-8 rounded-full object-cover"
+                      />
+                    ) : user?.name ? (
+                      <div className="h-8 w-8 rounded-full bg-[var(--color-bg-brand)] flex items-center justify-center text-[var(--color-button-primary-text)] font-semibold text-sm">
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                    ) : (
+                      <User className="h-5 w-5" />
+                    )}
+                  </Button>
+                  {accountMenuOpen && (
+                    <div
+                      className="absolute right-0 top-12 z-50 w-60 overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-card-bg)] shadow-2xl shadow-[var(--color-shadow-xl)]"
+                      role="menu"
+                    >
+                      <div className="px-4 py-3 border-b border-[var(--color-card-border)]">
+                        <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                          {user?.name ?? "User"}
+                        </p>
+                        <p className="text-xs text-[var(--color-text-tertiary)] truncate">
+                          {user?.email ?? ""}
+                        </p>
+                      </div>
+                      <NavLink
+                        to="/settings"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className={({ isActive }) =>
+                          cn(
+                            "flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold transition-colors",
+                            isActive
+                              ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)]"
+                              : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]",
+                          )
+                        }
+                        role="menuitem"
+                      >
+                        <Settings className="h-5 w-5 shrink-0" />
+                        Settings
+                      </NavLink>
+                      <NavLink
+                        to="/api"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className={({ isActive }) =>
+                          cn(
+                            "flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold transition-colors",
+                            isActive
+                              ? "bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)]"
+                              : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]",
+                          )
+                        }
+                        role="menuitem"
+                      >
+                        <SlidersHorizontal className="h-5 w-5 shrink-0" />
+                        API
+                      </NavLink>
+                      <div className="border-t border-[var(--color-card-border)]" />
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-[var(--color-text-danger)] hover:bg-[var(--color-bg-hover)] transition-colors"
+                        role="menuitem"
+                        onClick={logout}
+                      >
+                        <LogOut className="h-5 w-5 shrink-0" />
+                        Log Out
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <form
