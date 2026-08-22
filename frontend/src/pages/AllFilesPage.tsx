@@ -261,6 +261,9 @@ export function AllFilesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeFolderId = searchParams.get("folderId");
   const searchQuery = searchParams.get("q")?.trim() ?? "";
+  const initialPage = searchParams.get("page")
+    ? Math.max(1, parseInt(searchParams.get("page")!, 10))
+    : 1;
   const [uploadOpen, setUploadOpen] = useState(false);
   const [folderOpen, setFolderOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -328,7 +331,7 @@ export function AllFilesPage() {
     files: [],
   });
   const [pagination, setPagination] = useState<Pagination | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(initialPage);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("viewer");
@@ -345,7 +348,7 @@ export function AllFilesPage() {
     if (activeFolderId) params.set("folderId", activeFolderId);
     if (searchQuery) params.set("q", searchQuery);
     params.set("page", String(page));
-    params.set("limit", "100");
+    params.set("limit", "50");
     const data = await apiFetch<{
       files: BackendFile[];
       pagination: Pagination;
@@ -372,13 +375,17 @@ export function AllFilesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
+    // Reset page to 1 in URL when folder or search changes
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("page", "1");
+    setSearchParams(newParams, { replace: true });
     loadAll().catch((error) =>
       setMessage(
         error instanceof Error ? error.message : "Failed to load files",
       ),
     );
     setSelectedFileIds(new Set());
-  }, [activeFolderId, searchQuery]);
+  }, [activeFolderId, searchQuery, searchParams, setSearchParams]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -807,6 +814,10 @@ export function AllFilesPage() {
 
   async function goToPage(page: number) {
     setCurrentPage(page);
+    // Update URL with page parameter for persistence
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("page", String(page));
+    setSearchParams(newParams, { replace: true });
     await loadFiles(page);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
